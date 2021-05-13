@@ -21,6 +21,7 @@
 
 # libraries
 library(tidyverse)
+library(lubridate)
 library(tm)
 library(pdftools)
 library(tidytext)
@@ -109,6 +110,11 @@ process_single_case <- function(filename){
   
   # reads each page into an element of the vector
   pdf_all_text <- pdf_text(filename)
+  
+  # grab date from text before cleaning
+  date <- str_extract(pdf_all_text, 'Date:\\s+\\w+\\s\\d+,\\s\\d\\d\\d\\d')
+  date <- date[!is.na(date)]
+  date <- lubridate::parse_date_time(date, "b d Y")
   
   # steps to remove unwanted artifacts (line breaks and numbers) + boilerplate content on each page
   pdf_all_text <-
@@ -219,6 +225,7 @@ process_single_case <- function(filename){
       
       # create a list of the information gathered
       summary_row <- list(docket_number = docket,
+                          date_argued = date,
                           justice = selected_judge,
                           sentiment_score = justice_mean_sentiment,
                           questions = justice_questions,
@@ -235,6 +242,7 @@ process_single_case <- function(filename){
     # tryCatch on returning collected data - return a special NA list if there was an error
     tryCatch(return(summary_row), error = function(e){
       summary_row <- list(docket_number = docket,
+                          date_argued = date,
                           justice = selected_judge,
                           sentiment_score = NA,
                           questions = NA,
@@ -264,7 +272,7 @@ process_single_case <- function(filename){
 ####################
 
 
-# for every file in pdf_filenames, call the get singlecase function which returns a dataframe, then bind rows for all dataframes
+# for every file in pdf_filenames, call the process_single_case() function which returns a dataframe, then bind rows for all dataframes
 all_cases <- rbindlist(lapply(pdf_filenames, process_single_case))
 
 
