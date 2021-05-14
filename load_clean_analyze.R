@@ -558,6 +558,7 @@ all_cases_with_votes %>%
   theme(legend.position =  "none")
 
 # GOOD ENOUGH
+# tooltip: mean sentiment score?
 # as density
 all_cases_with_votes %>% 
   ggplot(aes(x = sentiment_score, fill = justice)) + 
@@ -565,6 +566,7 @@ all_cases_with_votes %>%
   geom_vline(xintercept = 0, linetype = "dotted") +
   scale_x_continuous(limits = c(-10,10)) +
   facet_wrap(~ justice) +
+  labs(x = "Mean Sentiment Score", y = "Density") +
   theme(legend.position =  "none")
 
 # we can see some interesting patterns visually...
