@@ -481,6 +481,22 @@ all_cases_with_votes %>%
   labs(x = "", y = "Word Count") +
   coord_flip()
 
+# barbell plot with some awkward coding to circumvent issues with multiple guides in ggplot
+all_cases_with_votes %>% 
+  drop_na(voted_for_petitioner) %>% 
+  group_by(justice, voted_for_petitioner) %>% 
+  summarize(mean_words_spoken = mean(words_spoken, na.rm = TRUE)) %>%
+  rename(`Vote Type` = voted_for_petitioner) %>% 
+  mutate(`Vote Type` = ifelse(`Vote Type` == TRUE, "For the Petitioner", "Against the Petitioner")) %>% 
+  ggplot(aes(x = reorder(justice, -mean_words_spoken), y = mean_words_spoken)) +
+  geom_line(size = 1.5) +
+  geom_point(aes(shape = `Vote Type`, fill = `Vote Type`), size = 6) + 
+  scale_shape_manual(values = c(25, 24)) +
+  scale_color_manual(values = c("#f58442", "#2e40b8"))+
+  labs(x = "", y = "Word Count") +
+  coord_flip() +
+  theme(legend.position = 'top')
+
 
 #### --------------------------------------------------------------------------- questions
 
