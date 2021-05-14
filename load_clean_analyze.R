@@ -27,6 +27,8 @@ library(pdftools)
 library(tidytext)
 library(textdata)
 library(data.table)
+library(ggiraph)
+library(ggimage)
 
 
 ####################
@@ -272,7 +274,7 @@ process_single_case <- function(filename){
 ####################
 
 
-# for every file in pdf_filenames, call the process_single_case() function which returns a dataframe, then bind rows for all dataframes
+# for every file in pdf_filenames, call the process_single_case() function which returns a dataframe, then use rbindlist to bind rows for all dataframes
 all_cases <- rbindlist(lapply(pdf_filenames, process_single_case))
 
 
@@ -343,6 +345,20 @@ fwrite(all_cases_with_votes, file = 'data/clean/all_cases_with_votes.csv')
 ### TODO: add interactivity with ggiraph?
 ## geom_point() can be labeled with case names
 
+# ------------------------------------------------------------------------------ section on Thomas's graphs
+
+#### address in report: JUSTICE THOMAS is not a data error, *he really doesn't talk that much*
+
+# Justice Thomas has a reputation for being quiet. He literally went 10 years without asking a question, [ending his silent streak in 2016].
+# link to this article from 2016 to establish his reputation: https://www.nytimes.com/2016/03/01/us/politics/supreme-court-clarence-thomas.html
+
+# However, [he has gotten more chatty during the pandemic]. This analysis might look different if it were run on the current court session. link to this article: https://www.nytimes.com/2021/05/03/us/politics/clarence-thomas-supreme-court.html
+
+# I'm addressing this up front because you may notice that his graphs are markedly different from those of other justices. This missing data for REORDER(questions, interruptions, sentiment) is not an error - *he just didn't say anything during the oral argument of the petitioner in those cases*.
+
+### ---------------------------------------------------------------------------- interruptions
+
+
 # interruptions committed by justices over time
 all_cases_with_votes %>% 
   ggplot(aes(x = date_argued, y = interruptions, color = justice)) +
@@ -392,12 +408,88 @@ all_cases_with_votes %>%
   geom_density(alpha = 0.5) +
   facet_wrap(~ justice)
 
+######### ---------------------------------------------------------------------- words
+
+# words spoken by justices over time 
+all_cases_with_votes %>% 
+  ggplot(aes(x = date_argued, y = words_spoken, color = justice)) +
+  geom_smooth() + 
+  geom_point(alpha = 0.5) +
+  labs(x = 'Date of Oral Argument', y = 'Word Count') +
+  theme(legend.position = "none") +
+  # scale_y_continuous()
+  facet_wrap(~ justice)
+
+# words spoken by justices bar means 
+all_cases_with_votes %>% 
+  group_by(justice, voted_for_petitioner) %>% 
+  summarize(mean_words_spoken = mean(words_spoken, na.rm = TRUE)) %>% 
+  ggplot(aes(x = voted_for_petitioner, y = mean_words_spoken, color = justice)) +
+  geom_col() +
+  # labs(x = 'Date of Oral Argument', y = 'Word Count') +
+  theme(legend.position = "none") +
+  # scale_y_continuous()
+  facet_wrap(~ justice)
+
+# words spoken by justices heatmap 
+all_cases_with_votes %>% 
+  drop_na(voted_for_petitioner) %>% 
+  mutate(voted_for_petitioner = factor(voted_for_petitioner, levels = c("TRUE", "FALSE"))) %>% 
+  group_by(justice, voted_for_petitioner) %>% 
+  summarize(mean_words_spoken = mean(words_spoken, na.rm = TRUE)) %>% 
+  ggplot(aes(x = voted_for_petitioner, y = justice, fill = mean_words_spoken)) +
+  geom_tile() +
+  theme(legend.position = "none") 
+
+# lollipop graph
+all_cases_with_votes %>% 
+  drop_na(voted_for_petitioner) %>% 
+  mutate(voted_for_petitioner = factor(voted_for_petitioner, levels = c("TRUE", "FALSE"))) %>% 
+  group_by(justice, voted_for_petitioner) %>% 
+  summarize(mean_words_spoken = mean(words_spoken, na.rm = TRUE)) %>% 
+  ggplot(aes(x = reorder(justice, -mean_words_spoken), y = mean_words_spoken)) +
+  geom_segment(aes(xend = justice,
+                   y = min(mean_words_spoken),
+                   yend = mean_words_spoken), size = 2) +
+  geom_point(size = 5) +
+  coord_flip()
+
+# all_cases_with_votes %>% 
+#   drop_na(voted_for_petitioner) %>% 
+#   group_by(justice, voted_for_petitioner) %>% 
+#   summarize(mean_words_spoken = mean(words_spoken, na.rm = TRUE)) %>% 
+#   pivot_wider(id_cols = justice, names_from = voted_for_petitioner, values_from = mean_words_spoken) %>% 
+#   rename("against_petitioner" = `FALSE`, "for_petitioner" = `TRUE`) %>% 
+#   ggplot(aes(x = for_petitioner, xend = against_petitioner, y = reorder(justice, -against_petitioner))) +
+#   geom_dumbbell(size=2, color="#0B0A09", 
+#                 colour_x = "#5b8124", colour_xend = "#bad744",
+#                 dot_guide=FALSE)
+
+# custom barbell plot
+# tooltip: value on hover
+all_cases_with_votes %>% 
+  drop_na(voted_for_petitioner) %>% 
+  group_by(justice, voted_for_petitioner) %>% 
+  summarize(mean_words_spoken = mean(words_spoken, na.rm = TRUE)) %>% 
+  pivot_wider(id_cols = justice, names_from = voted_for_petitioner, values_from = mean_words_spoken) %>% 
+  ungroup() %>% 
+  rename("against_petitioner" = `FALSE`, "for_petitioner" = `TRUE`) %>% 
+  ggplot(aes(x = reorder(justice, -against_petitioner), y = against_petitioner)) +
+  geom_segment(aes(y = for_petitioner, yend = against_petitioner, xend = justice)) +
+  geom_point(aes(y = for_petitioner), shape = 24, fill = '#2e40b8', size = 5) +
+  geom_point(aes(y = against_petitioner), shape = 25, fill = '#f58442', size = 5) +
+  labs(x = "", y = "Word Count") +
+  coord_flip()
+
+
+#### --------------------------------------------------------------------------- questions
+
 # questions asked by justices over time 
 all_cases_with_votes %>% 
   ggplot(aes(x = date_argued, y = questions, color = justice)) +
   geom_smooth() + 
   geom_point(alpha = 0.5) +
-  labs(x = 'Date of Oral Argument', y = 'Interruptions') +
+  labs(x = 'Date of Oral Argument', y = 'Questions') +
   theme(legend.position = "none") +
   # scale_y_continuous()
   facet_wrap(~ justice)
