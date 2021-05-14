@@ -358,7 +358,6 @@ fwrite(all_cases_with_votes, file = 'data/clean/all_cases_with_votes.csv')
 
 ### ---------------------------------------------------------------------------- interruptions
 
-
 # interruptions committed by justices over time
 all_cases_with_votes %>% 
   ggplot(aes(x = date_argued, y = interruptions, color = justice)) +
@@ -382,13 +381,24 @@ all_cases_with_votes %>%
   theme(legend.position = "none") +
   facet_wrap(~ justice)
 
+# GOOD
 # BOX PLOT
 all_cases_with_votes %>% 
   drop_na(voted_for_petitioner) %>% 
   mutate(voted_for_petitioner = factor(voted_for_petitioner, levels = c("TRUE", "FALSE"))) %>% 
   ggplot(aes(x = voted_for_petitioner, y = interruptions, fill = justice)) +
-  geom_boxplot(outlier.shape = NA) +
-  geom_jitter(width = 0.2, alpha = 0.35) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.5) +
+  geom_jitter(aes(color = justice),width = 0.2, alpha = 0.35) +
+  theme(legend.position = "none") +
+  labs(x = "Voted For Petitioner", y = "Number of Interruptions") +
+  facet_wrap(~ justice)
+
+# BOX PLOT
+all_cases_with_votes %>% 
+  drop_na(voted_for_petitioner) %>% 
+  mutate(voted_for_petitioner = factor(voted_for_petitioner, levels = c("TRUE", "FALSE"))) %>% 
+  ggplot(aes(x = voted_for_petitioner, y = interruptions, fill = justice)) +
+  geom_boxplot() +
   theme(legend.position = "none") +
   facet_wrap(~ justice)
 
@@ -398,9 +408,12 @@ all_cases_with_votes %>%
 # Conclusion: We reject the null hypothesis. The average number of interruptions in a case is higher when they voted AGAINST the petitioner, {val mean a} VS {val mean b}, with a p-value of {p-value}.
 # Unfortunately, the sample size is too small to hypothesis test each justice individually.
 # However, we can take a look at the boxplots below to take some (statistically unsound!) guess about for which justices this pattern might hold true.
-ttest_interruptions <- t.test(interruptions ~ voted_for_petitioner, data = all_cases_with_votes)
+ttest_interruptions_justices <- t.test(interruptions ~ voted_for_petitioner, data = all_cases_with_votes)
 
-# density graph
+# not enough evidence to associate higher mean with losing the case (p = 0.14)
+ttest_interruptions_win_the_case <- t.test(interruptions ~ petitioner_wins, data = all_cases_with_votes)
+
+# density graph - BAD
 all_cases_with_votes %>% 
   drop_na(voted_for_petitioner) %>% 
   mutate(voted_for_petitioner = factor(voted_for_petitioner, levels = c("TRUE", "FALSE"))) %>% 
@@ -410,17 +423,18 @@ all_cases_with_votes %>%
 
 ######### ---------------------------------------------------------------------- words
 
+# GOOD ENOUGH
 # words spoken by justices over time 
 all_cases_with_votes %>% 
   ggplot(aes(x = date_argued, y = words_spoken, color = justice)) +
   geom_smooth() + 
   geom_point(alpha = 0.5) +
-  labs(x = 'Date of Oral Argument', y = 'Word Count') +
+  labs(x = 'Date of Oral Argument', y = 'Spoken Word Count') +
   theme(legend.position = "none") +
   # scale_y_continuous()
   facet_wrap(~ justice)
 
-# words spoken by justices bar means 
+# words spoken by justices bar means - BAD
 all_cases_with_votes %>% 
   group_by(justice, voted_for_petitioner) %>% 
   summarize(mean_words_spoken = mean(words_spoken, na.rm = TRUE)) %>% 
@@ -431,7 +445,7 @@ all_cases_with_votes %>%
   # scale_y_continuous()
   facet_wrap(~ justice)
 
-# words spoken by justices heatmap 
+# words spoken by justices heatmap - BAD
 all_cases_with_votes %>% 
   drop_na(voted_for_petitioner) %>% 
   mutate(voted_for_petitioner = factor(voted_for_petitioner, levels = c("TRUE", "FALSE"))) %>% 
@@ -441,7 +455,7 @@ all_cases_with_votes %>%
   geom_tile() +
   theme(legend.position = "none") 
 
-# lollipop graph
+# lollipop graph - BAD
 all_cases_with_votes %>% 
   drop_na(voted_for_petitioner) %>% 
   mutate(voted_for_petitioner = factor(voted_for_petitioner, levels = c("TRUE", "FALSE"))) %>% 
@@ -454,6 +468,7 @@ all_cases_with_votes %>%
   geom_point(size = 5) +
   coord_flip()
 
+# barbell plot using ggalt package
 # all_cases_with_votes %>% 
 #   drop_na(voted_for_petitioner) %>% 
 #   group_by(justice, voted_for_petitioner) %>% 
@@ -481,6 +496,7 @@ all_cases_with_votes %>%
   labs(x = "", y = "Word Count") +
   coord_flip()
 
+# GOOD
 # barbell plot with some awkward coding to circumvent issues with multiple guides in ggplot
 all_cases_with_votes %>% 
   drop_na(voted_for_petitioner) %>% 
@@ -489,10 +505,10 @@ all_cases_with_votes %>%
   rename(`Vote Type` = voted_for_petitioner) %>% 
   mutate(`Vote Type` = ifelse(`Vote Type` == TRUE, "For the Petitioner", "Against the Petitioner")) %>% 
   ggplot(aes(x = reorder(justice, -mean_words_spoken), y = mean_words_spoken)) +
-  geom_line(size = 1.5) +
+  geom_line(size = 1.5, color = "grey30") +
   geom_point(aes(shape = `Vote Type`, fill = `Vote Type`), size = 6) + 
   scale_shape_manual(values = c(25, 24)) +
-  scale_color_manual(values = c("#f58442", "#2e40b8"))+
+  scale_fill_manual(values = c("orangered1", "dodgerblue4"))+
   labs(x = "", y = "Word Count") +
   coord_flip() +
   theme(legend.position = 'top')
@@ -509,4 +525,5 @@ all_cases_with_votes %>%
   theme(legend.position = "none") +
   # scale_y_continuous()
   facet_wrap(~ justice)
+
 
