@@ -329,3 +329,76 @@ all_cases_with_votes <-
 
 
 fwrite(all_cases_with_votes, file = 'data/clean/all_cases_with_votes.csv')
+
+
+
+#######################################################################
+###################                                 ###################
+###################                                 ###################
+###################                                 ###################
+###################                                 ###################
+###################                                 ###################
+#######################################################################
+
+### TODO: add interactivity with ggiraph?
+## geom_point() can be labeled with case names
+
+# interruptions committed by justices over time
+all_cases_with_votes %>% 
+  ggplot(aes(x = date_argued, y = interruptions, color = justice)) +
+  geom_smooth() + 
+  geom_point(alpha = 0.5) +
+  labs(x = 'Date of Oral Argument', y = 'Interruptions') +
+  theme(legend.position = "none") +
+  # scale_y_continuous()
+  facet_wrap(~ justice)
+
+# facet by voted with petitioner
+# interactivity: statistical significance?
+# BAR PLOT
+all_cases_with_votes %>% 
+  drop_na(voted_for_petitioner) %>% 
+  group_by(justice, voted_for_petitioner) %>% 
+  summarize(mean_interruptions = mean(interruptions,  na.rm = TRUE)) %>% 
+  mutate(voted_for_petitioner = factor(voted_for_petitioner, levels = c("TRUE", "FALSE"))) %>% 
+  ggplot(aes(x = voted_for_petitioner, y = mean_interruptions, fill = justice)) +
+  geom_col() +
+  theme(legend.position = "none") +
+  facet_wrap(~ justice)
+
+# BOX PLOT
+all_cases_with_votes %>% 
+  drop_na(voted_for_petitioner) %>% 
+  mutate(voted_for_petitioner = factor(voted_for_petitioner, levels = c("TRUE", "FALSE"))) %>% 
+  ggplot(aes(x = voted_for_petitioner, y = interruptions, fill = justice)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.35) +
+  theme(legend.position = "none") +
+  facet_wrap(~ justice)
+
+# Do justices interrupt more or less on average, depending on how they vote?
+# H0: There is **no difference** in the mean number of interruptions by the justices, depending on whether they voted FOR or AGAINST the petitioner.
+# HA: The mean number of interruptions by the justices **is different**, depending on whether they voted FOR or AGAINST the petitioner.
+# Conclusion: We reject the null hypothesis. The average number of interruptions in a case is higher when they voted AGAINST the petitioner, {val mean a} VS {val mean b}, with a p-value of {p-value}.
+# Unfortunately, the sample size is too small to hypothesis test each justice individually.
+# However, we can take a look at the boxplots below to take some (statistically unsound!) guess about for which justices this pattern might hold true.
+ttest_interruptions <- t.test(interruptions ~ voted_for_petitioner, data = all_cases_with_votes)
+
+# density graph
+all_cases_with_votes %>% 
+  drop_na(voted_for_petitioner) %>% 
+  mutate(voted_for_petitioner = factor(voted_for_petitioner, levels = c("TRUE", "FALSE"))) %>% 
+  ggplot(aes(x = interruptions, fill = voted_for_petitioner)) +
+  geom_density(alpha = 0.5) +
+  facet_wrap(~ justice)
+
+# questions asked by justices over time 
+all_cases_with_votes %>% 
+  ggplot(aes(x = date_argued, y = questions, color = justice)) +
+  geom_smooth() + 
+  geom_point(alpha = 0.5) +
+  labs(x = 'Date of Oral Argument', y = 'Interruptions') +
+  theme(legend.position = "none") +
+  # scale_y_continuous()
+  facet_wrap(~ justice)
+
