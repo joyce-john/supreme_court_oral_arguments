@@ -526,4 +526,53 @@ all_cases_with_votes %>%
   # scale_y_continuous()
   facet_wrap(~ justice)
 
+# relationship questions and words spoken
+all_cases_with_votes %>% 
+  ggplot(aes(x = words_spoken, y = questions, color = justice)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth() +
+  facet_wrap(~ justice)
 
+
+### ---------------------------------------------------------------------------- sentiment
+
+#
+all_cases_with_votes %>% 
+  ggplot(aes(x = sentiment_score, y = questions, color = justice)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth() +
+  facet_wrap(~ justice) +
+  theme(legend.position = "none")
+
+
+# all sentiments histogram
+all_cases_with_votes %>% 
+  ggplot(aes(x = sentiment_score)) + 
+  geom_histogram()
+
+# sentiment facet by justice
+all_cases_with_votes %>% 
+  ggplot(aes(x = sentiment_score, fill = justice)) + 
+  geom_histogram() +
+  facet_wrap(~ justice) +
+  theme(legend.position =  "none")
+
+# GOOD ENOUGH
+# as density
+all_cases_with_votes %>% 
+  ggplot(aes(x = sentiment_score, fill = justice)) + 
+  geom_density() +
+  geom_vline(xintercept = 0, linetype = "dotted") +
+  scale_x_continuous(limits = c(-10,10)) +
+  facet_wrap(~ justice) +
+  theme(legend.position =  "none")
+
+# we can see some interesting patterns visually...
+# the Breyer, Ginsburg, Kagan, and Sotomayor seem to lean a bit negative
+# these are the liberal justices
+# confirm the negativity with the table
+all_cases_with_votes %>% 
+  group_by(justice) %>% 
+  summarize(`Mean Sentiment Score` = mean(sentiment_score, na.rm = TRUE)) %>% 
+  rename(Justice = justice) %>% 
+  arrange(`Mean Sentiment Score`)
