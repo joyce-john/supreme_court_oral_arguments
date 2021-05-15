@@ -146,13 +146,21 @@ process_single_case <- function(filename){
     # pipeline for each judge wrapped in tryCatch to handle absent judges (example: abstention)
     tryCatch({  
       
-      # a pattern recognized in the text that indicates this justice is now speaking
-      # example: "CHIEF JUSTICE ROBERTS: " appears whenever Roberts speaks
+      
+      ## -----> define regex patterns for this justice
+      
+      
+      # a pattern that indicates this justice is now speaking
+      # example: "CHIEF JUSTICE ROBERTS: " "his words here" "CAPITAL LETTERS MARKING THE NEXT SPEAKER" appears whenever Roberts speaks
       # negative lookahead marks the end by identify a series of capital letters (the next speaker or document section is written in all caps)
       justice_is_speaking_pattern <- paste0(selected_judge,": .+?(?=\\s[A-Z][A-Z]+\\.?\\s)")
       
       # a pattern in the text which indicates that the justice has interrupted another speaker
       justice_is_interrupting_pattern <- paste0("-- ", selected_judge)
+      
+      
+      ## -----> extract this justice's speech from the document
+      
       
       # get all the text where the selected justice is speaking
       justice_speech <- str_extract_all(oral_argument_of_petitioner, justice_is_speaking_pattern, simplify = TRUE)
@@ -165,6 +173,39 @@ process_single_case <- function(filename){
         select('value') %>% 
         rename('spoken_words' = 'value')
       
+      
+      ## -----> sentenced-based sentiment analysis with sentimentr
+      
+      
+      # get sentences and compute sentiment score with sentimentr
+      justice_sentences_with_sentimentr_scores <-
+        justice_speech %>% 
+        sentimentr::get_sentences() %>% 
+        sentimentr::sentiment() %>% 
+        mutate(spoken_words = str_remove_all(spoken_words, paste0(selected_judge, ": "))) # clean justice's name from text
+      
+      # store most positive sentence in a vector
+      justice_most_positive_sentence <-
+        justice_sentences_with_sentimentr_scores %>% 
+        arrange(sentiment) %>% 
+        slice_tail() %>% 
+        pull(spoken_words)
+      
+      # store most negative sentence in a vector
+      justice_most_negative_sentence <-
+        justice_sentences_with_sentimentr_scores %>% 
+        arrange(sentiment) %>% 
+        slice_head() %>% 
+        pull(spoken_words)
+      
+      # calculate mean sentiment of all sentences, weighted by word count of each sentence
+      justice_mean_sentiment_sentimentr <- weighted.mean(justice_sentences_with_sentimentr_scores$sentiment, 
+                                                         w = justice_sentences_with_sentimentr_scores$word_count)
+      
+      
+      ## -----> token-based sentiment analysis with afinn lexicon
+      
+      
       # get all the words and count them
       justice_speech_tokens <-
         justice_speech %>% 
@@ -176,10 +217,20 @@ process_single_case <- function(filename){
         arrange(desc(count))
       
       # get sentiments from 'afinn' because we want a numeric score so we can compare sentiments between justices, cases
-      justice_sentiments <- 
+      justice_sentiments_afinn <- 
         justice_speech_tokens %>% 
         inner_join(get_sentiments('afinn')) %>% 
         mutate(count_times_value = count * value)
+      
+      # get mean sentiment score of the justice's word
+      justice_mean_sentiment_afinn <- 
+        justice_sentiments_afinn %>% 
+        summarize(mean = mean(count_times_value)) %>% 
+        pull(mean)
+      
+      
+      ## -----> other analysis on the justice's speech
+      
       
       # count the number of time this justice interrupted another speaker
       justice_interruptions <- 
@@ -196,12 +247,6 @@ process_single_case <- function(filename){
         str_extract_all(pattern = "\\?") %>% 
         unlist() %>% 
         length()
-      
-      # get mean sentiment score of the justice's word
-      justice_mean_sentiment <- 
-        justice_sentiments %>% 
-        summarize(mean = mean(count_times_value)) %>% 
-        pull(mean)
       
       # count total words spoken (in this case, we'll also count stop words to get an accurate picture of how much they talked)
       justice_count_words_spoken <- 
@@ -225,16 +270,24 @@ process_single_case <- function(filename){
         pull(word) %>% 
         str_flatten(collapse = " ")
       
+      
+      ## -----> store data in list
+      
+      
       # create a list of the information gathered
       summary_row <- list(docket_number = docket,
                           date_argued = date,
                           justice = selected_judge,
-                          sentiment_score = justice_mean_sentiment,
+                          sentiment_score_afinn = justice_mean_sentiment_afinn,
+                          sentiment_score_sentimentr = justice_mean_sentiment_sentimentr,
                           questions = justice_questions,
                           interruptions = justice_interruptions,
                           words_spoken = justice_count_words_spoken,
                           top_word = justice_top_word,
-                          unigrams = justice_all_unigrams_as_a_string)
+                          unigrams = justice_all_unigrams_as_a_string,
+                          most_positive_sentence = justice_most_positive_sentence,
+                          most_negative_sentence = justice_most_negative_sentence
+                          )
       
     }, 
     
@@ -246,12 +299,15 @@ process_single_case <- function(filename){
       summary_row <- list(docket_number = docket,
                           date_argued = date,
                           justice = selected_judge,
-                          sentiment_score = NA,
+                          sentiment_score_afinn = NA,
+                          sentiment_score_sentimentr = NA,
                           questions = NA,
                           interruptions = NA,
                           words_spoken = NA,
                           top_word = NA,
-                          unigrams = NA)
+                          unigrams = NA,
+                          most_positive_sentence = NA,
+                          most_negative_sentence = NA)
       
       return(summary_row)
       
@@ -541,7 +597,7 @@ all_cases_with_votes %>%
 
 #
 all_cases_with_votes %>% 
-  ggplot(aes(x = sentiment_score, y = questions, color = justice)) +
+  ggplot(aes(x = sentiment_score_afinn, y = questions, color = justice)) +
   geom_point(alpha = 0.7) +
   geom_smooth() +
   facet_wrap(~ justice) +
@@ -550,12 +606,12 @@ all_cases_with_votes %>%
 
 # all sentiments histogram
 all_cases_with_votes %>% 
-  ggplot(aes(x = sentiment_score)) + 
+  ggplot(aes(x = sentiment_score_afinn)) + 
   geom_histogram()
 
 # sentiment facet by justice
 all_cases_with_votes %>% 
-  ggplot(aes(x = sentiment_score, fill = justice)) + 
+  ggplot(aes(x = sentiment_score_afinn, fill = justice)) + 
   geom_histogram() +
   facet_wrap(~ justice) +
   theme(legend.position =  "none")
@@ -564,7 +620,7 @@ all_cases_with_votes %>%
 # tooltip: mean sentiment score?
 # as density
 all_cases_with_votes %>% 
-  ggplot(aes(x = sentiment_score, fill = justice)) + 
+  ggplot(aes(x = sentiment_score_afinn, fill = justice)) + 
   geom_density() +
   geom_vline(xintercept = 0, linetype = "dotted") +
   scale_x_continuous(limits = c(-10,10)) +
@@ -578,6 +634,6 @@ all_cases_with_votes %>%
 # confirm the negativity with the table
 all_cases_with_votes %>% 
   group_by(justice) %>% 
-  summarize(`Mean Sentiment Score` = mean(sentiment_score, na.rm = TRUE)) %>% 
+  summarize(`Mean Sentiment Score` = mean(sentiment_score_afinn, na.rm = TRUE)) %>% 
   rename(Justice = justice) %>% 
   arrange(`Mean Sentiment Score`)
