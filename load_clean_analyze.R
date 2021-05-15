@@ -345,6 +345,9 @@ fwrite(all_cases_with_votes, file = 'data/clean/all_cases_with_votes.csv')
 ### TODO: add interactivity with ggiraph?
 ## geom_point() can be labeled with case names
 
+## possible TODO: analyze relationship between sentence length and sentiment
+## using sentimentr most_positive_sentence and most_negative_sentence columns
+
 # ------------------------------------------------------------------------------ section on Thomas's graphs
 
 #### address in report: JUSTICE THOMAS is not a data error, *he really doesn't talk that much*
