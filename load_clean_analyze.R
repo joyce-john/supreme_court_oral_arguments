@@ -715,3 +715,59 @@ all_cases_with_votes %>%
   theme(legend.position =  "none")
 # not buying this analysis - seem excessively positive
 
+# BAD
+# scatter of z-scores for afinn and sentimentr
+all_cases_with_votes %>%
+  drop_na(sentiment_score_afinn, sentiment_score_sentimentr) %>% 
+  mutate(afinn_scaled = (sentiment_score_afinn - mean(sentiment_score_afinn)) / sd(sentiment_score_afinn),
+         sentimentr_scaled = (sentiment_score_sentimentr - mean(sentiment_score_sentimentr)) / sd(sentiment_score_sentimentr)) %>% 
+  ggplot(aes(x = afinn_scaled, y = sentimentr_scaled)) + 
+  geom_point() +
+  geom_smooth()
+
+
+mean(nchar(all_cases_with_votes$most_positive_sentence), na.rm = TRUE)
+mean(nchar(all_cases_with_votes$most_negative_sentence), na.rm = TRUE)
+
+all_cases_with_votes %>% 
+  group_by(justice) %>% 
+  unnest_tokens(word, most_negative_sentence) %>% 
+  anti_join(stop_words) %>% 
+  anti_join(custom_stop_words) %>% 
+  count(word) %>% 
+  drop_na(word) %>%  
+  rename(count = n)
+
+# lots of difficulty with ggplot here
+all_cases_with_votes %>% 
+  filter(justice == "CHIEF JUSTICE ROBERTS") %>% 
+  drop_na(voted_for_petitioner, unigrams) %>% 
+  group_by(justice, voted_for_petitioner) %>% 
+  unnest_tokens(word, unigrams) %>% 
+  count(word) %>% 
+  arrange(justice, voted_for_petitioner, -n) %>% 
+  rename(count = n) %>% 
+  slice_max(n = 5, order_by = count) %>%
+  mutate(directional_count = ifelse(voted_for_petitioner == TRUE, count, count * -1)) %>%
+  ggplot(aes(x = reorder(word, directional_count), y = directional_count)) +
+  geom_col(aes(fill = voted_for_petitioner)) +
+  geom_label(aes(label = word)) +
+  labs(x = "", y = "Number of Times Word was Used") +
+  coord_flip() +
+  facet_wrap(~ justice)
+
+# no justice groups...
+all_cases_with_votes %>% 
+  drop_na(voted_for_petitioner, unigrams) %>% 
+  group_by(voted_for_petitioner) %>% 
+  unnest_tokens(word, unigrams) %>% 
+  count(word) %>% 
+  arrange(voted_for_petitioner, -n) %>% 
+  rename(count = n) %>% 
+  slice_max(n = 25, order_by = count) %>%
+  mutate(directional_count = ifelse(voted_for_petitioner == TRUE, count, count * -1)) %>%
+  ggplot(aes(x = reorder(word, directional_count), y = directional_count)) +
+  geom_col(aes(fill = voted_for_petitioner)) +
+  geom_label(aes(label = word)) +
+  labs(x = "", y = "Number of Times Word was Used") +
+  coord_flip()
