@@ -441,6 +441,7 @@ all_cases_with_votes %>%
   facet_wrap(~ justice)
 
 # GOOD
+# interactivity: label case name, `Interruptions given: `
 # BOX PLOT
 all_cases_with_votes %>% 
   drop_na(voted_for_petitioner) %>% 
@@ -483,6 +484,7 @@ all_cases_with_votes %>%
 ######### ---------------------------------------------------------------------- words
 
 # GOOD ENOUGH
+# interactivity: label case name
 # words spoken by justices over time 
 all_cases_with_votes %>% 
   ggplot(aes(x = date_argued, y = words_spoken, color = justice)) +
@@ -556,6 +558,7 @@ all_cases_with_votes %>%
   coord_flip()
 
 # GOOD
+# interactivity: for point, label mean value, for segment label range or difference of values
 # barbell plot with some awkward coding to circumvent issues with multiple guides in ggplot
 all_cases_with_votes %>% 
   drop_na(voted_for_petitioner) %>% 
@@ -592,6 +595,51 @@ all_cases_with_votes %>%
   geom_smooth() +
   facet_wrap(~ justice)
 
+# p value of 0.01... yeah, they ask more questions when they vote against
+t.test(questions ~ voted_for_petitioner, data = all_cases_with_votes)
+
+# GOOD
+# interactivity: label case name, `questions given: `
+# BOX PLOT
+all_cases_with_votes %>% 
+  drop_na(voted_for_petitioner) %>% 
+  mutate(voted_for_petitioner = factor(voted_for_petitioner, levels = c("TRUE", "FALSE"))) %>% 
+  ggplot(aes(x = voted_for_petitioner, y = questions, fill = justice)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.5) +
+  geom_jitter(aes(color = justice),width = 0.2, alpha = 0.35) +
+  theme(legend.position = "none") +
+  labs(x = "Voted For Petitioner", y = "Number of Questions Asked") +
+  facet_wrap(~ justice)
+
+# function takes a justice as an argument, and performs a t-test on the data filtered to that justice
+# t-test: is the mean number of questions different depending on whether the justice voted for or against the petitioner
+mean_questions_t_test <- function(one_judge){
+  
+  # filter data to the the judge we want to examine
+  filtered_data <- all_cases_with_votes[justice == one_judge]
+  
+  # students t-test: any difference in means when voted_for_petitioner is TRUE vs FALSE?
+  questions_t_test_result <- t.test(questions ~ voted_for_petitioner, data = filtered_data)
+  
+  # label test results as significant/insignificant based on p-value cutoff of 0.05
+  significance <- ifelse(questions_t_test_result$p.value < 0.05, "Significant", "Not Significant")
+  
+  # store results in list
+  one_judge_t_questions_t_test_result <- list(Justice = one_judge,
+                                              `Voted for Petitioner` = questions_t_test_result$estimate[['mean in group TRUE']],
+                                              `Voted against Petitioner` = questions_t_test_result$estimate[['mean in group FALSE']],
+                                              `Statistical Significance` = significance,
+                                              `P Value` = questions_t_test_result$p.value)
+  
+}
+
+# do t-test for all justices
+questions_table <- rbindlist(lapply(justices, mean_questions_t_test))
+
+# arrange by p value to show relevant justices first
+questions_table %>% 
+  arrange(`P Value`)
+
 
 ### ---------------------------------------------------------------------------- sentiment
 
@@ -604,10 +652,28 @@ all_cases_with_votes %>%
   theme(legend.position = "none")
 
 
-# all sentiments histogram
+# all afinn  sentiments histogram
 all_cases_with_votes %>% 
   ggplot(aes(x = sentiment_score_afinn)) + 
   geom_histogram()
+
+#SHOW PLOTS SIDE BY SIDE TO ILLUSTRATE DIFFERENT MEANS (positive leaning VS negative leaning)
+all_cases_with_votes %>% 
+  ggplot(aes(x = sentiment_score_afinn)) +
+  geom_density(fill = "lightsteelblue3") +
+  geom_vline(xintercept = 0, linetype = "dotted") +
+  scale_x_continuous(limits = c(-10,10)) +
+  labs(title = "afinn", x = "", y = "Density")
+
+all_cases_with_votes %>% 
+  ggplot(aes(x = sentiment_score_sentimentr)) +
+  geom_density(fill = "tomato2") +
+  geom_vline(xintercept = 0, linetype = "dotted") +
+  scale_x_continuous(limits = c(-1,1)) +
+  labs(title = "sentimentr", x = "", y = "Density")
+ 
+# END SIDE-BY-SIDE PLOTS 
+
 
 # sentiment facet by justice
 all_cases_with_votes %>% 
@@ -625,7 +691,7 @@ all_cases_with_votes %>%
   geom_vline(xintercept = 0, linetype = "dotted") +
   scale_x_continuous(limits = c(-10,10)) +
   facet_wrap(~ justice) +
-  labs(x = "Mean Sentiment Score", y = "Density") +
+  labs(x = "Mean Sentiment Score (afinn)", y = "Density") +
   theme(legend.position =  "none")
 
 # we can see some interesting patterns visually...
@@ -637,3 +703,15 @@ all_cases_with_votes %>%
   summarize(`Mean Sentiment Score` = mean(sentiment_score_afinn, na.rm = TRUE)) %>% 
   rename(Justice = justice) %>% 
   arrange(`Mean Sentiment Score`)
+
+# try with sentimentr data...
+all_cases_with_votes %>% 
+  ggplot(aes(x = sentiment_score_sentimentr, fill = justice)) + 
+  geom_density() +
+  geom_vline(xintercept = 0, linetype = "dotted") +
+  scale_x_continuous(limits = c(-1,1)) +
+  facet_wrap(~ justice) +
+  labs(x = "Mean Sentiment Score (sentimentr)", y = "Density") +
+  theme(legend.position =  "none")
+# not buying this analysis - seem excessively positive
+
