@@ -322,7 +322,7 @@ process_single_case <- function(filename){
     })
   }
   
-  # get list of stats for ech justice in the case, and bind lists to a dataframe
+  # get list of stats for each justice in the case, and bind lists to a dataframe
   single_case <- rbindlist(lapply(justices, single_judge_data))
   
   return(single_case)
@@ -578,7 +578,7 @@ all_cases_with_votes %>%
   geom_line(size = 1.5, color = "grey30") +
   geom_point(aes(shape = `Vote Type`, fill = `Vote Type`), size = 6) + 
   scale_shape_manual(values = c(25, 24)) +
-  scale_fill_manual(values = c("orangered1", "dodgerblue4"))+
+  scale_fill_manual(values = c("orangered1", "dodgerblue4")) +
   labs(x = "", y = "Word Count") +
   coord_flip() +
   theme(legend.position = 'top')
@@ -746,16 +746,19 @@ all_cases_with_votes %>%
   drop_na(word) %>%  
   rename(count = n)
 
+ggplot_stop_word_list <- data.frame(word = c("person", "court", "law", "question", "read", "people"))
+
 # lots of difficulty with ggplot here
 all_cases_with_votes %>% 
   # filter(justice == "CHIEF JUSTICE ROBERTS") %>% 
   drop_na(voted_for_petitioner, unigrams) %>% 
   group_by(justice, voted_for_petitioner) %>% 
   unnest_tokens(word, unigrams) %>% 
+  anti_join(ggplot_stop_word_list) %>% #### BIG STEP, consider carefully
   count(word) %>% 
   arrange(justice, voted_for_petitioner, -n) %>% 
   rename(count = n) %>% 
-  slice_max(n = 5, order_by = count) %>%
+  slice_max(n = 5, order_by = count) %>% ### NUMBER of words per group here
   mutate(directional_count = ifelse(voted_for_petitioner == TRUE, count, count * -1)) %>%
   ggplot(aes(x = reorder(word, directional_count), y = directional_count)) +
   geom_col(aes(fill = voted_for_petitioner)) +
@@ -766,6 +769,54 @@ all_cases_with_votes %>%
   coord_flip() +
   facet_wrap(~ justice, scales = "free")
 
+# ONLY Ginsburg
+all_cases_with_votes %>% 
+  filter(justice == "JUSTICE GINSBURG") %>% 
+  drop_na(voted_for_petitioner, unigrams) %>% 
+  group_by(justice, voted_for_petitioner) %>% 
+  unnest_tokens(word, unigrams) %>% 
+  anti_join(ggplot_stop_word_list) %>% #### BIG STEP, consider carefully
+  count(word) %>% 
+  arrange(justice, voted_for_petitioner, -n) %>% 
+  rename(count = n) %>% 
+  slice_max(n = 5, order_by = count) %>% ### NUMBER of words per group here
+  mutate(directional_count = ifelse(voted_for_petitioner == TRUE, count, count * -1)) %>%
+  ggplot(aes(x = reorder(word, directional_count), y = directional_count)) +
+  geom_col(aes(fill = voted_for_petitioner)) +
+  geom_label(aes(label = word)) +
+  labs(title = "Top Words by Vote Type", x = "", y = "Number of Times Word Spoken") +
+  scale_x_discrete(labels = NULL, breaks = NULL) +
+  theme(legend.position = "top") +
+  scale_fill_discrete(name = "", labels = c("Voted Against the Petitioner", "Voted For the Petitioner")) +
+  coord_flip() +
+  facet_wrap(~ justice, scales = "free")
+
+# GOOD? - sanity check needed
+# interactivity: word, count
+# Ginsburg and Gorsuch
+all_cases_with_votes %>% 
+  filter(justice %in% c("JUSTICE GINSBURG", "JUSTICE GORSUCH")) %>% 
+  drop_na(voted_for_petitioner, unigrams) %>% 
+  group_by(justice, voted_for_petitioner) %>% 
+  unnest_tokens(word, unigrams) %>% 
+  anti_join(ggplot_stop_word_list) %>% #### BIG STEP, consider carefully
+  count(word) %>% 
+  arrange(justice, voted_for_petitioner, -n) %>% 
+  rename(count = n) %>% 
+  slice_max(n = 5, order_by = count) %>% ### NUMBER of words per group here
+  mutate(directional_count = ifelse(voted_for_petitioner == TRUE, count, count * -1)) %>%
+  ggplot(aes(x = reorder(word, directional_count), y = directional_count)) +
+  geom_col(aes(fill = voted_for_petitioner)) +
+  geom_label(aes(label = word)) +
+  labs(title = "Top Words by Vote Type", x = "", y = "Number of Times Word Spoken") +
+  scale_x_discrete(labels = NULL, breaks = NULL) +
+  scale_y_continuous(limits = c(-20, 20)) +
+  theme(legend.position = "top") +
+  scale_fill_manual(name = "", labels = c("Voted Against the Petitioner", "Voted For the Petitioner"), values = c("orangered1", "dodgerblue4")) +
+  coord_flip() +
+  facet_wrap(~ justice, scales = "free")
+
+
 # selected justices
 all_cases_with_votes %>% 
   filter(justice %in% c("CHIEF JUSTICE ROBERTS", "JUSTICE ALITO", "JUSTICE BREYER", "JUSTICE GINSBURG")) %>% 
@@ -774,8 +825,7 @@ all_cases_with_votes %>%
   unnest_tokens(word, unigrams) %>% 
   count(word) %>% 
   arrange(justice, voted_for_petitioner, -n) %>% 
-  rename(count = n) %>% 
-  filter(word != "ms") %>% 
+  rename(count = n) %>%
   slice_max(n = 5, order_by = count) %>%
   mutate(directional_count = ifelse(voted_for_petitioner == TRUE, count, count * -1)) %>%
   ggplot(aes(x = reorder(word, directional_count), y = directional_count)) +
