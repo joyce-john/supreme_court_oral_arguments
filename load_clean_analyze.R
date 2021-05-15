@@ -67,9 +67,9 @@ pdf_filenames <- list.files(path = 'data/raw/2019_cases/', full.names = TRUE)
 ####################
 
 
-## ------------------------------------- ##
-## define constants outside the function ##
-## ------------------------------------- ##
+
+## -----> define constants outside the function
+
 
 # all justices on the bench in the 2019 term
 justices <- c("CHIEF JUSTICE ROBERTS",
@@ -82,7 +82,7 @@ justices <- c("CHIEF JUSTICE ROBERTS",
               "JUSTICE KAVANAUGH",
               "JUSTICE GINSBURG")
 
-# custom stop words to withhold from text analysis
+# custom stop words to withhold from some parts of the analysis
 custom_stop_words <- data.frame(word = c('chief', 
                                          'justice',
                                          'roberts',
@@ -95,17 +95,22 @@ custom_stop_words <- data.frame(word = c('chief',
                                          'kavanaugh',
                                          'ginsburg',
                                          'counsel',
-                                         'argument'))
+                                         'argument',
+                                         'ms'))
 
 # expressions to filter out when counting questions - justices politely referring to each other ("Justice Kagan?" = it's your turn to speak, Justice Kagan)
 justices_referring_to_each_other <- str_to_title(paste(justices, '\\?', sep = '', collapse = "|"))
 
-## --------------- ##
-## define function ##
-## --------------- ##
+
+## -----> define function for processing each PDF, and each justice in the text
+
 
 # function takes one PDF file path and returns a dataframe with stats for the justices in that case
 process_single_case <- function(filename){
+  
+  
+  ## -----> load and parse document
+  
   
   # extract the docket number from the filename
   docket <- str_extract(filename, "\\d+-\\d+")
@@ -130,12 +135,15 @@ process_single_case <- function(filename){
     str_flatten(collapse = "") %>% # combine vector elements into one big text
     str_squish() # remove excess whitespace in the text
   
-  # this code has a positive look behind for the start of the petitioner's opening oral argument...
-  # a capture group which simply takes all text...
-  # and a positive lookahead for the beginning of the respondent's opening oral argument (this indicates the end of the petitioner's)
+  # extract the part of the transcript which is the oral arguments of the petitioner(s)
+  # lookbehind = start of argument for petitioners, lookahead = start of argument for respondent, capture all text in between
   # CAPITALIZATION MATTERS! these phrases mark the correct parts of the document only when capitalized
   oral_argument_of_petitioner <-
     str_extract(pdf_all_text, "(?<=ON BEHALF OF THE PETITIONER).*(?=ON BEHALF OF .* RESPONDENT)")
+  
+  
+  ## -----> function to get stats for each justice who speaks in this document
+  
   
   # this function takes a justice's name as an input, and returns a list containing summary stats for that justice
   single_judge_data <- function(selected_judge){
@@ -740,7 +748,7 @@ all_cases_with_votes %>%
 
 # lots of difficulty with ggplot here
 all_cases_with_votes %>% 
-  filter(justice == "CHIEF JUSTICE ROBERTS") %>% 
+  # filter(justice == "CHIEF JUSTICE ROBERTS") %>% 
   drop_na(voted_for_petitioner, unigrams) %>% 
   group_by(justice, voted_for_petitioner) %>% 
   unnest_tokens(word, unigrams) %>% 
@@ -752,9 +760,34 @@ all_cases_with_votes %>%
   ggplot(aes(x = reorder(word, directional_count), y = directional_count)) +
   geom_col(aes(fill = voted_for_petitioner)) +
   geom_label(aes(label = word)) +
-  labs(x = "", y = "Number of Times Word was Used") +
+  labs(title = "Top Words by Vote Type", x = "", y = "") +
+  scale_x_discrete(labels = NULL, breaks = NULL) +
+  theme(legend.position = "top") +
   coord_flip() +
-  facet_wrap(~ justice)
+  facet_wrap(~ justice, scales = "free")
+
+# selected justices
+all_cases_with_votes %>% 
+  filter(justice %in% c("CHIEF JUSTICE ROBERTS", "JUSTICE ALITO", "JUSTICE BREYER", "JUSTICE GINSBURG")) %>% 
+  drop_na(voted_for_petitioner, unigrams) %>% 
+  group_by(justice, voted_for_petitioner) %>% 
+  unnest_tokens(word, unigrams) %>% 
+  count(word) %>% 
+  arrange(justice, voted_for_petitioner, -n) %>% 
+  rename(count = n) %>% 
+  filter(word != "ms") %>% 
+  slice_max(n = 5, order_by = count) %>%
+  mutate(directional_count = ifelse(voted_for_petitioner == TRUE, count, count * -1)) %>%
+  ggplot(aes(x = reorder(word, directional_count), y = directional_count)) +
+  geom_col(aes(fill = voted_for_petitioner)) +
+  geom_label(aes(label = word)) +
+  labs(title = "Top Words by Vote Type", x = "", y = "") +
+  scale_x_discrete(labels = NULL, breaks = NULL) +
+  theme(legend.position = "top") +
+  coord_flip() +
+  facet_wrap(~ justice, scales = "free")
+
+
 
 # no justice groups...
 all_cases_with_votes %>% 
@@ -764,7 +797,7 @@ all_cases_with_votes %>%
   count(word) %>% 
   arrange(voted_for_petitioner, -n) %>% 
   rename(count = n) %>% 
-  slice_max(n = 25, order_by = count) %>%
+  slice_max(n = 5, order_by = count) %>%
   mutate(directional_count = ifelse(voted_for_petitioner == TRUE, count, count * -1)) %>%
   ggplot(aes(x = reorder(word, directional_count), y = directional_count)) +
   geom_col(aes(fill = voted_for_petitioner)) +
