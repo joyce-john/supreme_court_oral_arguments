@@ -746,6 +746,7 @@ all_cases_with_votes %>%
   drop_na(word) %>%  
   rename(count = n)
 
+# a few more stop words - these words were making visualizations less informative
 ggplot_stop_word_list <- data.frame(word = c("person", "court", "law", "question", "read", "people"))
 
 # lots of difficulty with ggplot here
@@ -810,7 +811,7 @@ all_cases_with_votes %>%
   geom_label(aes(label = word)) +
   labs(title = "Top Words by Vote Type", x = "", y = "Number of Times Word Spoken") +
   scale_x_discrete(labels = NULL, breaks = NULL) +
-  scale_y_continuous(limits = c(-20, 20)) +
+  scale_y_continuous(breaks = c(-20, -10, 0, 10, 20), limits = c(-20, 20), labels = c("20", "10", "0", "10", "20")) +
   theme(legend.position = "top") +
   scale_fill_manual(name = "", labels = c("Voted Against the Petitioner", "Voted For the Petitioner"), values = c("orangered1", "dodgerblue4")) +
   coord_flip() +
