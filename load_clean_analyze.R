@@ -882,7 +882,7 @@ all_cases_with_votes %>%
 all_cases_with_votes %>% 
   drop_na(unigrams) %>% 
   filter(justice == "CHIEF JUSTICE ROBERTS") %>% 
-  mutate(voted_for_petitioner = ifelse(voted_for_petitioner == TRUE, "For Petitioner", "Against Petitioner")) %>% 
+  mutate(voted_for_petitioner = ifelse(voted_for_petitioner == TRUE, "Voted For Petitioner", "Voted Against Petitioner")) %>% 
   unnest_tokens(word, unigrams) %>% 
   count(voted_for_petitioner, word, sort = TRUE) %>% 
   bind_tf_idf(word, voted_for_petitioner, n) %>% 
@@ -897,3 +897,26 @@ all_cases_with_votes %>%
   scale_y_discrete(labels = NULL, breaks = NULL) +
   labs(x = "tf-idf for Chief Justice Roberts", y = NULL) +
   facet_wrap(~ voted_for_petitioner, ncol = 2, scales = "free")
+
+# tf-idf for Roberts FOR vs AGAINST
+# with special bar directions
+all_cases_with_votes %>% 
+  drop_na(unigrams) %>% 
+  filter(justice == "CHIEF JUSTICE ROBERTS") %>% 
+  mutate(voted_for_petitioner = ifelse(voted_for_petitioner == TRUE, "Voted For Petitioner", "Voted Against Petitioner")) %>% 
+  unnest_tokens(word, unigrams) %>% 
+  count(voted_for_petitioner, word, sort = TRUE) %>% 
+  bind_tf_idf(word, voted_for_petitioner, n) %>% 
+  group_by(voted_for_petitioner) %>% 
+  slice_max(tf_idf, n = 5) %>% 
+  ungroup() %>% 
+  mutate(word = reorder(word, tf_idf)) %>%
+  mutate(tf_idf = ifelse(voted_for_petitioner == "Voted For Petitioner", tf_idf, tf_idf * -1)) %>%  #flip direction of bars for "voted against"
+  ggplot(aes(tf_idf, word)) +
+  geom_col(aes(fill = voted_for_petitioner), show.legend = FALSE) +
+  geom_label(aes(label = word)) +
+  scale_fill_manual(values = c("orangered1", "dodgerblue4")) +
+  scale_y_discrete(labels = NULL, breaks = NULL) +
+  labs(x = "tf-idf for Chief Justice Roberts", y = NULL) +
+  facet_wrap(~ voted_for_petitioner, ncol = 2, scales = "free") +
+  scale_x_continuous(labels = abs) # must be the last line
