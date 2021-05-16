@@ -899,7 +899,7 @@ all_cases_with_votes %>%
   facet_wrap(~ voted_for_petitioner, ncol = 2, scales = "free")
 
 # tf-idf for Roberts FOR vs AGAINST
-# with special bar directions
+# with special bar directions and absolute value scale
 all_cases_with_votes %>% 
   drop_na(unigrams) %>% 
   filter(justice == "CHIEF JUSTICE ROBERTS") %>% 
