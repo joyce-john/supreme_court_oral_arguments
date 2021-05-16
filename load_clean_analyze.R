@@ -29,6 +29,7 @@ library(textdata)
 library(data.table)
 library(scales)
 library(ggiraph)
+library(ggpubr)
 library(ggimage)
 
 
@@ -385,6 +386,9 @@ vote_records <-
 all_cases_with_votes <-
   left_join(all_cases, vote_records, by = c("justice" = "justiceName", "docket_number" = "docket"))
 
+# interesting NAs in docket 18-217: there were no votes, because the petition was dismissed with consent of both parties
+# leave most NAs alone, but fill in the caseName variable so we can use it plot tooltips
+all_cases_with_votes$caseName[all_cases_with_votes$docket_number == "18-217"] <- "MATHENA v. MALVO"
 
 ####################
 ####################
@@ -430,15 +434,23 @@ fwrite(all_cases_with_votes, file = 'data/clean/all_cases_with_votes.csv')
 # GOOD
 # interactivity: label case name, `Interruptions given: `
 # BOX PLOT
+plot_interruptions_by_vote <-
 all_cases_with_votes %>% 
   drop_na(voted_for_petitioner) %>% 
   mutate(voted_for_petitioner = factor(voted_for_petitioner, levels = c("TRUE", "FALSE"))) %>% 
   ggplot(aes(x = voted_for_petitioner, y = interruptions, fill = justice)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.5) +
-  geom_jitter(aes(color = justice),width = 0.2, alpha = 0.35) +
+  geom_jitter_interactive(aes(color = justice, 
+                              tooltip = paste0("Case: ", caseName,
+                                               "\n",
+                                               "Interruptions by justice: ", interruptions)),
+                          width = 0.2, alpha = 0.35) +
   theme(legend.position = "none") +
   labs(x = "Voted For Petitioner", y = "Number of Interruptions") +
   facet_wrap(~ justice)
+
+# show interactive plot
+ggiraph(ggobj = plot_interruptions_by_vote)
 
 # Do justices interrupt more or less on average, depending on how they vote?
 # H0: There is **no difference** in the mean number of interruptions by the justices, depending on whether they voted FOR or AGAINST the petitioner.
@@ -456,18 +468,24 @@ ttest_interruptions_win_the_case <- t.test(interruptions ~ petitioner_wins, data
 # GOOD ENOUGH
 # interactivity: label case name
 # words spoken by justices over time 
+plot_words_spoken_over_time <-
 all_cases_with_votes %>% 
   ggplot(aes(x = date_argued, y = words_spoken, color = justice)) +
   geom_smooth() + 
-  geom_point(alpha = 0.5) +
+  geom_point_interactive(alpha = 0.5, aes(tooltip = paste0("Case: ", caseName,
+                                                           "\n",
+                                                           "Words spoken: ", words_spoken))) +
   labs(x = 'Date of Oral Argument', y = 'Spoken Word Count') +
   theme(legend.position = "none") +
   facet_wrap(~ justice)
 
+# show plot
+ggiraph(ggobj = plot_words_spoken_over_time)
 
 # GOOD
 # interactivity: for point, label mean value, for segment label range or difference of values
 # barbell plot with some awkward coding to circumvent issues with multiple guides in ggplot
+plot_words_spoken_by_vote_type <-
 all_cases_with_votes %>% 
   drop_na(voted_for_petitioner) %>% 
   group_by(justice, voted_for_petitioner) %>% 
@@ -475,14 +493,19 @@ all_cases_with_votes %>%
   rename(`Vote Type` = voted_for_petitioner) %>% 
   mutate(`Vote Type` = ifelse(`Vote Type` == TRUE, "For the Petitioner", "Against the Petitioner")) %>% 
   ggplot(aes(x = reorder(justice, -mean_words_spoken), y = mean_words_spoken)) +
-  geom_line(size = 1.5, color = "grey30") +
-  geom_point(aes(shape = `Vote Type`, fill = `Vote Type`), size = 6) + 
+  geom_line_interactive(size = 1.5, color = "grey30") +
+  geom_point_interactive(aes(shape = `Vote Type`, fill = `Vote Type`, 
+                             tooltip = paste0(round(mean_words_spoken, 0), " words on average")), 
+                         size = 6) + 
   scale_shape_manual(values = c(25, 24)) +
   scale_fill_manual(values = c("orangered1", "dodgerblue4")) +
-  labs(x = "", y = "Word Count") +
+  labs(x = "", y = "Spoken Word Count") +
   coord_flip() +
   theme(legend.position = 'top')
 
+
+# show plot
+ggiraph(ggobj = plot_words_spoken_by_vote_type)
 
 #### --------------------------------------------------------------------------- questions
 
@@ -493,15 +516,23 @@ t.test(questions ~ voted_for_petitioner, data = all_cases_with_votes)
 # GOOD
 # interactivity: label case name, `questions given: `
 # BOX PLOT
+plot_questions_asked_by_vote_type <-
 all_cases_with_votes %>% 
   drop_na(voted_for_petitioner) %>% 
   mutate(voted_for_petitioner = factor(voted_for_petitioner, levels = c("TRUE", "FALSE"))) %>% 
   ggplot(aes(x = voted_for_petitioner, y = questions, fill = justice)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.5) +
-  geom_jitter(aes(color = justice),width = 0.2, alpha = 0.35) +
+  geom_jitter_interactive(aes(color = justice,
+                              tooltip = paste0("Case: ", caseName,
+                                               "\n",
+                                               "Questions: ", questions)), 
+                          width = 0.2, alpha = 0.35) +
   theme(legend.position = "none") +
   labs(x = "Voted For Petitioner", y = "Number of Questions Asked") +
   facet_wrap(~ justice)
+
+# show plot
+ggiraph(ggobj = plot_questions_asked_by_vote_type)
 
 # function takes a justice as an argument, and performs a t-test on the data filtered to that justice
 # t-test: is the mean number of questions different depending on whether the justice voted for or against the petitioner
@@ -537,6 +568,7 @@ questions_table %>%
 
 
 #SHOW PLOTS SIDE BY SIDE TO ILLUSTRATE DIFFERENT MEANS (positive leaning VS negative leaning)
+plot_sentiment_density_afinn <-
 all_cases_with_votes %>% 
   ggplot(aes(x = sentiment_score_afinn)) +
   geom_density(fill = "lightsteelblue3") +
@@ -544,27 +576,40 @@ all_cases_with_votes %>%
   scale_x_continuous(limits = c(-10,10)) +
   labs(title = "afinn", x = "Score", y = "Density")
 
+plot_sentiment_density_sentimentr <-
 all_cases_with_votes %>% 
   ggplot(aes(x = sentiment_score_sentimentr)) +
   geom_density(fill = "tomato2") +
   geom_vline(xintercept = 0, linetype = "dotted") +
   scale_x_continuous(limits = c(-1,1)) +
   labs(title = "sentimentr", x = "Score", y = "Density")
- 
+
+# show plots side-by-side
+ggarrange(plot_sentiment_density_afinn, 
+          plot_sentiment_density_sentimentr,
+          ncol = 2,
+          nrow = 1)
+
 # END SIDE-BY-SIDE PLOTS 
 
 # OKAY - interesting
 # scatter of z-scores for afinn and sentimentr
 # the scores are weakly correlated within 2 standard deviations of their respective means
 # and very different at the extremes
+plot_sentiment_z_scores <- 
 all_cases_with_votes %>%
   drop_na(sentiment_score_afinn, sentiment_score_sentimentr) %>% 
   mutate(afinn_scaled = (sentiment_score_afinn - mean(sentiment_score_afinn)) / sd(sentiment_score_afinn),
          sentimentr_scaled = (sentiment_score_sentimentr - mean(sentiment_score_sentimentr)) / sd(sentiment_score_sentimentr)) %>% 
   ggplot(aes(x = afinn_scaled, y = sentimentr_scaled)) +
-  geom_point() +
+  geom_point_interactive(aes(tooltip = paste0("sentimentr z-score: ", round(sentimentr_scaled, 2),
+                                              "\n",
+                                              "afinn z-score: ", round(afinn_scaled, 2)))) +
   geom_smooth(color = "red") +
   labs(title = "Scaled afinn & sentimentr scores", x = "afinn z-score", y = "sentimentr z-score")
+
+# show plot
+ggiraph(ggobj = plot_sentiment_z_scores)
 
 # I will use afinn for the analysis
 # prefer a method which provides numeric scores
@@ -574,6 +619,7 @@ all_cases_with_votes %>%
 # GOOD ENOUGH
 # tooltip: mean sentiment score?
 # as density
+plot_sentiment_density_all_justices <-
 all_cases_with_votes %>% 
   ggplot(aes(x = sentiment_score_afinn, fill = justice)) + 
   geom_density() +
@@ -582,6 +628,9 @@ all_cases_with_votes %>%
   facet_wrap(~ justice) +
   labs(x = "Mean Sentiment Score (afinn)", y = "Density") +
   theme(legend.position =  "none")
+
+# show plot
+plot_sentiment_density_all_justices
 
 # we can see some interesting patterns visually...
 # the Breyer, Ginsburg, Kagan, and Sotomayor seem to lean a bit negative
@@ -594,11 +643,7 @@ all_cases_with_votes %>%
   rename(Justice = justice) %>% 
   arrange(`Mean Sentiment Score`)
 
-
-
-mean(nchar(all_cases_with_votes$most_positive_sentence), na.rm = TRUE)
-mean(nchar(all_cases_with_votes$most_negative_sentence), na.rm = TRUE)
-
+sentiment_table
 
 ## ----------------------------------------------------------------------------> token analysis
 
@@ -613,6 +658,7 @@ ggplot_stop_word_list <- data.frame(word = c("person", "court", "law", "question
 # GOOD? - sanity check needed
 # interactivity: word, count
 # Ginsburg and Gorsuch
+plot_top_unigrams_by_vote_type_ginsburg_gorsuch <- 
 all_cases_with_votes %>% 
   filter(justice %in% c("JUSTICE GINSBURG", "JUSTICE GORSUCH")) %>% 
   drop_na(voted_for_petitioner, unigrams) %>% 
@@ -625,8 +671,8 @@ all_cases_with_votes %>%
   slice_max(n = 5, order_by = count) %>% ### NUMBER of words per group here
   mutate(directional_count = ifelse(voted_for_petitioner == TRUE, count, count * -1)) %>%
   ggplot(aes(x = reorder(word, directional_count), y = directional_count)) +
-  geom_col(aes(fill = voted_for_petitioner)) +
-  geom_label(aes(label = word)) +
+  geom_col_interactive(aes(fill = voted_for_petitioner, tooltip = paste0(count, " times in this context"))) +
+  geom_label_interactive(aes(label = word, tooltip = paste0(count, " times in this context"))) +
   labs(title = "Top Words by Vote Type", x = "", y = "Number of Times Word Spoken") +
   scale_x_discrete(labels = NULL, breaks = NULL) +
   scale_y_continuous(breaks = c(-20, -10, 0, 10, 20), limits = c(-20, 20), labels = c("20", "10", "0", "10", "20")) +
@@ -635,7 +681,8 @@ all_cases_with_votes %>%
   coord_flip() +
   facet_wrap(~ justice, scales = "free")
 
-
+# show plot
+ggiraph(ggobj = plot_top_unigrams_by_vote_type_ginsburg_gorsuch)
 
 
 ## -----> tf-idf done the right way
