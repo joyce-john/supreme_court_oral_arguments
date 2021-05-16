@@ -27,6 +27,7 @@ library(pdftools)
 library(tidytext)
 library(textdata)
 library(data.table)
+library(scales)
 library(ggiraph)
 library(ggimage)
 
@@ -855,3 +856,44 @@ all_cases_with_votes %>%
   geom_label(aes(label = word)) +
   labs(x = "", y = "Number of Times Word was Used") +
   coord_flip()
+
+
+# GOOD ENOUGH
+# tf-idf for all justices
+all_cases_with_votes %>% 
+  drop_na(unigrams) %>% 
+  unnest_tokens(word, unigrams) %>% 
+  count(justice, word, sort = TRUE) %>% 
+  bind_tf_idf(word, justice, n) %>% 
+  group_by(justice) %>% 
+  slice_max(tf_idf, n = 7) %>% 
+  ungroup() %>% 
+  mutate(word = reorder(word, tf_idf)) %>%
+  ggplot(aes(tf_idf, word, fill = justice)) +
+  geom_col(show.legend = FALSE) +
+  labs(x = "tf-idf: Distintive Vocabulary Among the Justices", y = NULL) +
+  facet_wrap(~justice, ncol = 3, scales = "free")
+
+## talk about "Dah", show "dah" screenshots
+
+
+## GOOD ENOUGH
+# tf-idf for Roberts FOR vs AGAINST
+all_cases_with_votes %>% 
+  drop_na(unigrams) %>% 
+  filter(justice == "CHIEF JUSTICE ROBERTS") %>% 
+  mutate(voted_for_petitioner = ifelse(voted_for_petitioner == TRUE, "For Petitioner", "Against Petitioner")) %>% 
+  unnest_tokens(word, unigrams) %>% 
+  count(voted_for_petitioner, word, sort = TRUE) %>% 
+  bind_tf_idf(word, voted_for_petitioner, n) %>% 
+  group_by(voted_for_petitioner) %>% 
+  slice_max(tf_idf, n = 5) %>% 
+  ungroup() %>% 
+  mutate(word = reorder(word, tf_idf)) %>%
+  ggplot(aes(tf_idf, word)) +
+  geom_col(aes(fill = voted_for_petitioner), show.legend = FALSE) +
+  geom_label(aes(label = word)) +
+  scale_fill_manual(values = c("orangered1", "dodgerblue4")) +
+  scale_y_discrete(labels = NULL, breaks = NULL) +
+  labs(x = "tf-idf for Chief Justice Roberts", y = NULL) +
+  facet_wrap(~ voted_for_petitioner, ncol = 2, scales = "free")
