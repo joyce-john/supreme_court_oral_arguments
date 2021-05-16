@@ -671,8 +671,8 @@ all_cases_with_votes %>%
   slice_max(n = 5, order_by = count) %>% ### NUMBER of words per group here
   mutate(directional_count = ifelse(voted_for_petitioner == TRUE, count, count * -1)) %>%
   ggplot(aes(x = reorder(word, directional_count), y = directional_count)) +
-  geom_col_interactive(aes(fill = voted_for_petitioner, tooltip = paste0(count, " times in this context"))) +
-  geom_label_interactive(aes(label = word, tooltip = paste0(count, " times in this context"))) +
+  geom_col(aes(fill = voted_for_petitioner)) +
+  geom_label(aes(label = word)) +
   labs(title = "Top Words by Vote Type", x = "", y = "Number of Times Word Spoken") +
   scale_x_discrete(labels = NULL, breaks = NULL) +
   scale_y_continuous(breaks = c(-20, -10, 0, 10, 20), limits = c(-20, 20), labels = c("20", "10", "0", "10", "20")) +
@@ -682,7 +682,7 @@ all_cases_with_votes %>%
   facet_wrap(~ justice, scales = "free")
 
 # show plot
-ggiraph(ggobj = plot_top_unigrams_by_vote_type_ginsburg_gorsuch)
+plot_top_unigrams_by_vote_type_ginsburg_gorsuch
 
 
 ## -----> tf-idf done the right way
@@ -691,6 +691,7 @@ ggiraph(ggobj = plot_top_unigrams_by_vote_type_ginsburg_gorsuch)
 # GOOD ENOUGH
 # tf-idf for all justices # not conditioned on vote type
 # explains each justices unique vocabulary
+plot_tf_idf_all_justices <-
 all_cases_with_votes %>% 
   drop_na(unigrams) %>% 
   unnest_tokens(word, unigrams) %>% 
@@ -705,6 +706,9 @@ all_cases_with_votes %>%
   labs(x = "tf-idf: Distintive Vocabulary Among the Justices", y = NULL) +
   facet_wrap(~justice, ncol = 3, scales = "free")
 
+# show plot
+plot_tf_idf_all_justices
+
 ## talk about "Dah", show "dah" screenshots
 
 
@@ -715,6 +719,7 @@ all_cases_with_votes %>%
 # with special bar directions and absolute value scale
 # tf-idf for Roberts #conditioned on FOR vs AGAINST
 # explains unique language from roberts when based on how he feels about the petitioner's argument
+plot_tf_idf_roberts_vote_type <-
 all_cases_with_votes %>% 
   drop_na(unigrams) %>% 
   filter(justice == "CHIEF JUSTICE ROBERTS") %>% 
@@ -735,3 +740,6 @@ all_cases_with_votes %>%
   labs(x = "tf-idf of Chief Justice Roberts", y = NULL) +
   facet_wrap(~ voted_for_petitioner, ncol = 2, scales = "free") +
   scale_x_continuous(labels = abs) # must be the last line
+
+# show plot
+plot_tf_idf_roberts_vote_type
