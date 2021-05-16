@@ -426,28 +426,6 @@ fwrite(all_cases_with_votes, file = 'data/clean/all_cases_with_votes.csv')
 
 ### ---------------------------------------------------------------------------- interruptions
 
-# interruptions committed by justices over time
-all_cases_with_votes %>% 
-  ggplot(aes(x = date_argued, y = interruptions, color = justice)) +
-  geom_smooth() + 
-  geom_point(alpha = 0.5) +
-  labs(x = 'Date of Oral Argument', y = 'Interruptions') +
-  theme(legend.position = "none") +
-  # scale_y_continuous()
-  facet_wrap(~ justice)
-
-# facet by voted with petitioner
-# interactivity: statistical significance?
-# BAR PLOT
-all_cases_with_votes %>% 
-  drop_na(voted_for_petitioner) %>% 
-  group_by(justice, voted_for_petitioner) %>% 
-  summarize(mean_interruptions = mean(interruptions,  na.rm = TRUE)) %>% 
-  mutate(voted_for_petitioner = factor(voted_for_petitioner, levels = c("TRUE", "FALSE"))) %>% 
-  ggplot(aes(x = voted_for_petitioner, y = mean_interruptions, fill = justice)) +
-  geom_col() +
-  theme(legend.position = "none") +
-  facet_wrap(~ justice)
 
 # GOOD
 # interactivity: label case name, `Interruptions given: `
@@ -462,15 +440,6 @@ all_cases_with_votes %>%
   labs(x = "Voted For Petitioner", y = "Number of Interruptions") +
   facet_wrap(~ justice)
 
-# BOX PLOT
-all_cases_with_votes %>% 
-  drop_na(voted_for_petitioner) %>% 
-  mutate(voted_for_petitioner = factor(voted_for_petitioner, levels = c("TRUE", "FALSE"))) %>% 
-  ggplot(aes(x = voted_for_petitioner, y = interruptions, fill = justice)) +
-  geom_boxplot() +
-  theme(legend.position = "none") +
-  facet_wrap(~ justice)
-
 # Do justices interrupt more or less on average, depending on how they vote?
 # H0: There is **no difference** in the mean number of interruptions by the justices, depending on whether they voted FOR or AGAINST the petitioner.
 # HA: The mean number of interruptions by the justices **is different**, depending on whether they voted FOR or AGAINST the petitioner.
@@ -481,14 +450,6 @@ ttest_interruptions_justices <- t.test(interruptions ~ voted_for_petitioner, dat
 
 # not enough evidence to associate higher mean with losing the case (p = 0.14)
 ttest_interruptions_win_the_case <- t.test(interruptions ~ petitioner_wins, data = all_cases_with_votes)
-
-# density graph - BAD
-all_cases_with_votes %>% 
-  drop_na(voted_for_petitioner) %>% 
-  mutate(voted_for_petitioner = factor(voted_for_petitioner, levels = c("TRUE", "FALSE"))) %>% 
-  ggplot(aes(x = interruptions, fill = voted_for_petitioner)) +
-  geom_density(alpha = 0.5) +
-  facet_wrap(~ justice)
 
 ######### ---------------------------------------------------------------------- words
 
@@ -501,70 +462,8 @@ all_cases_with_votes %>%
   geom_point(alpha = 0.5) +
   labs(x = 'Date of Oral Argument', y = 'Spoken Word Count') +
   theme(legend.position = "none") +
-  # scale_y_continuous()
   facet_wrap(~ justice)
 
-# words spoken by justices bar means - BAD
-all_cases_with_votes %>% 
-  group_by(justice, voted_for_petitioner) %>% 
-  summarize(mean_words_spoken = mean(words_spoken, na.rm = TRUE)) %>% 
-  ggplot(aes(x = voted_for_petitioner, y = mean_words_spoken, color = justice)) +
-  geom_col() +
-  # labs(x = 'Date of Oral Argument', y = 'Word Count') +
-  theme(legend.position = "none") +
-  # scale_y_continuous()
-  facet_wrap(~ justice)
-
-# words spoken by justices heatmap - BAD
-all_cases_with_votes %>% 
-  drop_na(voted_for_petitioner) %>% 
-  mutate(voted_for_petitioner = factor(voted_for_petitioner, levels = c("TRUE", "FALSE"))) %>% 
-  group_by(justice, voted_for_petitioner) %>% 
-  summarize(mean_words_spoken = mean(words_spoken, na.rm = TRUE)) %>% 
-  ggplot(aes(x = voted_for_petitioner, y = justice, fill = mean_words_spoken)) +
-  geom_tile() +
-  theme(legend.position = "none") 
-
-# lollipop graph - BAD
-all_cases_with_votes %>% 
-  drop_na(voted_for_petitioner) %>% 
-  mutate(voted_for_petitioner = factor(voted_for_petitioner, levels = c("TRUE", "FALSE"))) %>% 
-  group_by(justice, voted_for_petitioner) %>% 
-  summarize(mean_words_spoken = mean(words_spoken, na.rm = TRUE)) %>% 
-  ggplot(aes(x = reorder(justice, -mean_words_spoken), y = mean_words_spoken)) +
-  geom_segment(aes(xend = justice,
-                   y = min(mean_words_spoken),
-                   yend = mean_words_spoken), size = 2) +
-  geom_point(size = 5) +
-  coord_flip()
-
-# barbell plot using ggalt package
-# all_cases_with_votes %>% 
-#   drop_na(voted_for_petitioner) %>% 
-#   group_by(justice, voted_for_petitioner) %>% 
-#   summarize(mean_words_spoken = mean(words_spoken, na.rm = TRUE)) %>% 
-#   pivot_wider(id_cols = justice, names_from = voted_for_petitioner, values_from = mean_words_spoken) %>% 
-#   rename("against_petitioner" = `FALSE`, "for_petitioner" = `TRUE`) %>% 
-#   ggplot(aes(x = for_petitioner, xend = against_petitioner, y = reorder(justice, -against_petitioner))) +
-#   geom_dumbbell(size=2, color="#0B0A09", 
-#                 colour_x = "#5b8124", colour_xend = "#bad744",
-#                 dot_guide=FALSE)
-
-# custom barbell plot
-# tooltip: value on hover
-all_cases_with_votes %>% 
-  drop_na(voted_for_petitioner) %>% 
-  group_by(justice, voted_for_petitioner) %>% 
-  summarize(mean_words_spoken = mean(words_spoken, na.rm = TRUE)) %>% 
-  pivot_wider(id_cols = justice, names_from = voted_for_petitioner, values_from = mean_words_spoken) %>% 
-  ungroup() %>% 
-  rename("against_petitioner" = `FALSE`, "for_petitioner" = `TRUE`) %>% 
-  ggplot(aes(x = reorder(justice, -against_petitioner), y = against_petitioner)) +
-  geom_segment(aes(y = for_petitioner, yend = against_petitioner, xend = justice)) +
-  geom_point(aes(y = for_petitioner), shape = 24, fill = '#2e40b8', size = 5) +
-  geom_point(aes(y = against_petitioner), shape = 25, fill = '#f58442', size = 5) +
-  labs(x = "", y = "Word Count") +
-  coord_flip()
 
 # GOOD
 # interactivity: for point, label mean value, for segment label range or difference of values
@@ -587,22 +486,6 @@ all_cases_with_votes %>%
 
 #### --------------------------------------------------------------------------- questions
 
-# questions asked by justices over time 
-all_cases_with_votes %>% 
-  ggplot(aes(x = date_argued, y = questions, color = justice)) +
-  geom_smooth() + 
-  geom_point(alpha = 0.5) +
-  labs(x = 'Date of Oral Argument', y = 'Questions') +
-  theme(legend.position = "none") +
-  # scale_y_continuous()
-  facet_wrap(~ justice)
-
-# relationship questions and words spoken
-all_cases_with_votes %>% 
-  ggplot(aes(x = words_spoken, y = questions, color = justice)) +
-  geom_point(alpha = 0.5) +
-  geom_smooth() +
-  facet_wrap(~ justice)
 
 # p value of 0.01... yeah, they ask more questions when they vote against
 t.test(questions ~ voted_for_petitioner, data = all_cases_with_votes)
@@ -652,19 +535,6 @@ questions_table %>%
 
 ### ---------------------------------------------------------------------------- sentiment
 
-#
-all_cases_with_votes %>% 
-  ggplot(aes(x = sentiment_score_afinn, y = questions, color = justice)) +
-  geom_point(alpha = 0.7) +
-  geom_smooth() +
-  facet_wrap(~ justice) +
-  theme(legend.position = "none")
-
-
-# all afinn  sentiments histogram
-all_cases_with_votes %>% 
-  ggplot(aes(x = sentiment_score_afinn)) + 
-  geom_histogram()
 
 #SHOW PLOTS SIDE BY SIDE TO ILLUSTRATE DIFFERENT MEANS (positive leaning VS negative leaning)
 all_cases_with_votes %>% 
@@ -672,24 +542,34 @@ all_cases_with_votes %>%
   geom_density(fill = "lightsteelblue3") +
   geom_vline(xintercept = 0, linetype = "dotted") +
   scale_x_continuous(limits = c(-10,10)) +
-  labs(title = "afinn", x = "", y = "Density")
+  labs(title = "afinn", x = "Score", y = "Density")
 
 all_cases_with_votes %>% 
   ggplot(aes(x = sentiment_score_sentimentr)) +
   geom_density(fill = "tomato2") +
   geom_vline(xintercept = 0, linetype = "dotted") +
   scale_x_continuous(limits = c(-1,1)) +
-  labs(title = "sentimentr", x = "", y = "Density")
+  labs(title = "sentimentr", x = "Score", y = "Density")
  
 # END SIDE-BY-SIDE PLOTS 
 
+# OKAY - interesting
+# scatter of z-scores for afinn and sentimentr
+# the scores are weakly correlated within 2 standard deviations of their respective means
+# and very different at the extremes
+all_cases_with_votes %>%
+  drop_na(sentiment_score_afinn, sentiment_score_sentimentr) %>% 
+  mutate(afinn_scaled = (sentiment_score_afinn - mean(sentiment_score_afinn)) / sd(sentiment_score_afinn),
+         sentimentr_scaled = (sentiment_score_sentimentr - mean(sentiment_score_sentimentr)) / sd(sentiment_score_sentimentr)) %>% 
+  ggplot(aes(x = afinn_scaled, y = sentimentr_scaled)) +
+  geom_point() +
+  geom_smooth(color = "red") +
+  labs(title = "Scaled afinn & sentimentr scores", x = "afinn z-score", y = "sentimentr z-score")
 
-# sentiment facet by justice
-all_cases_with_votes %>% 
-  ggplot(aes(x = sentiment_score_afinn, fill = justice)) + 
-  geom_histogram() +
-  facet_wrap(~ justice) +
-  theme(legend.position =  "none")
+# I will use afinn for the analysis
+# prefer a method which provides numeric scores
+# find afinn to be more accurate when inspecting examples **in this particular data**
+
 
 # GOOD ENOUGH
 # tooltip: mean sentiment score?
@@ -707,91 +587,28 @@ all_cases_with_votes %>%
 # the Breyer, Ginsburg, Kagan, and Sotomayor seem to lean a bit negative
 # these are the liberal justices
 # confirm the negativity with the table
+sentiment_table <-
 all_cases_with_votes %>% 
   group_by(justice) %>% 
   summarize(`Mean Sentiment Score` = mean(sentiment_score_afinn, na.rm = TRUE)) %>% 
   rename(Justice = justice) %>% 
   arrange(`Mean Sentiment Score`)
 
-# try with sentimentr data...
-all_cases_with_votes %>% 
-  ggplot(aes(x = sentiment_score_sentimentr, fill = justice)) + 
-  geom_density() +
-  geom_vline(xintercept = 0, linetype = "dotted") +
-  scale_x_continuous(limits = c(-1,1)) +
-  facet_wrap(~ justice) +
-  labs(x = "Mean Sentiment Score (sentimentr)", y = "Density") +
-  theme(legend.position =  "none")
-# not buying this analysis - seem excessively positive
-
-# BAD
-# scatter of z-scores for afinn and sentimentr
-all_cases_with_votes %>%
-  drop_na(sentiment_score_afinn, sentiment_score_sentimentr) %>% 
-  mutate(afinn_scaled = (sentiment_score_afinn - mean(sentiment_score_afinn)) / sd(sentiment_score_afinn),
-         sentimentr_scaled = (sentiment_score_sentimentr - mean(sentiment_score_sentimentr)) / sd(sentiment_score_sentimentr)) %>% 
-  ggplot(aes(x = afinn_scaled, y = sentimentr_scaled)) + 
-  geom_point() +
-  geom_smooth()
 
 
 mean(nchar(all_cases_with_votes$most_positive_sentence), na.rm = TRUE)
 mean(nchar(all_cases_with_votes$most_negative_sentence), na.rm = TRUE)
 
-all_cases_with_votes %>% 
-  group_by(justice) %>% 
-  unnest_tokens(word, most_negative_sentence) %>% 
-  anti_join(stop_words) %>% 
-  anti_join(custom_stop_words) %>% 
-  count(word) %>% 
-  drop_na(word) %>%  
-  rename(count = n)
+
+## ----------------------------------------------------------------------------> token analysis
+
+## -----> a few more stop words 
 
 # a few more stop words - these words were making visualizations less informative
 ggplot_stop_word_list <- data.frame(word = c("person", "court", "law", "question", "read", "people"))
 
-# lots of difficulty with ggplot here
-all_cases_with_votes %>% 
-  # filter(justice == "CHIEF JUSTICE ROBERTS") %>% 
-  drop_na(voted_for_petitioner, unigrams) %>% 
-  group_by(justice, voted_for_petitioner) %>% 
-  unnest_tokens(word, unigrams) %>% 
-  anti_join(ggplot_stop_word_list) %>% #### BIG STEP, consider carefully
-  count(word) %>% 
-  arrange(justice, voted_for_petitioner, -n) %>% 
-  rename(count = n) %>% 
-  slice_max(n = 5, order_by = count) %>% ### NUMBER of words per group here
-  mutate(directional_count = ifelse(voted_for_petitioner == TRUE, count, count * -1)) %>%
-  ggplot(aes(x = reorder(word, directional_count), y = directional_count)) +
-  geom_col(aes(fill = voted_for_petitioner)) +
-  geom_label(aes(label = word)) +
-  labs(title = "Top Words by Vote Type", x = "", y = "") +
-  scale_x_discrete(labels = NULL, breaks = NULL) +
-  theme(legend.position = "top") +
-  coord_flip() +
-  facet_wrap(~ justice, scales = "free")
+## -----> roll your own td-idf solution.... (talk about it)
 
-# ONLY Ginsburg
-all_cases_with_votes %>% 
-  filter(justice == "JUSTICE GINSBURG") %>% 
-  drop_na(voted_for_petitioner, unigrams) %>% 
-  group_by(justice, voted_for_petitioner) %>% 
-  unnest_tokens(word, unigrams) %>% 
-  anti_join(ggplot_stop_word_list) %>% #### BIG STEP, consider carefully
-  count(word) %>% 
-  arrange(justice, voted_for_petitioner, -n) %>% 
-  rename(count = n) %>% 
-  slice_max(n = 5, order_by = count) %>% ### NUMBER of words per group here
-  mutate(directional_count = ifelse(voted_for_petitioner == TRUE, count, count * -1)) %>%
-  ggplot(aes(x = reorder(word, directional_count), y = directional_count)) +
-  geom_col(aes(fill = voted_for_petitioner)) +
-  geom_label(aes(label = word)) +
-  labs(title = "Top Words by Vote Type", x = "", y = "Number of Times Word Spoken") +
-  scale_x_discrete(labels = NULL, breaks = NULL) +
-  theme(legend.position = "top") +
-  scale_fill_discrete(name = "", labels = c("Voted Against the Petitioner", "Voted For the Petitioner")) +
-  coord_flip() +
-  facet_wrap(~ justice, scales = "free")
 
 # GOOD? - sanity check needed
 # interactivity: word, count
@@ -801,7 +618,7 @@ all_cases_with_votes %>%
   drop_na(voted_for_petitioner, unigrams) %>% 
   group_by(justice, voted_for_petitioner) %>% 
   unnest_tokens(word, unigrams) %>% 
-  anti_join(ggplot_stop_word_list) %>% #### BIG STEP, consider carefully
+  anti_join(ggplot_stop_word_list) %>% 
   count(word) %>% 
   arrange(justice, voted_for_petitioner, -n) %>% 
   rename(count = n) %>% 
@@ -819,47 +636,14 @@ all_cases_with_votes %>%
   facet_wrap(~ justice, scales = "free")
 
 
-# selected justices
-all_cases_with_votes %>% 
-  filter(justice %in% c("CHIEF JUSTICE ROBERTS", "JUSTICE ALITO", "JUSTICE BREYER", "JUSTICE GINSBURG")) %>% 
-  drop_na(voted_for_petitioner, unigrams) %>% 
-  group_by(justice, voted_for_petitioner) %>% 
-  unnest_tokens(word, unigrams) %>% 
-  count(word) %>% 
-  arrange(justice, voted_for_petitioner, -n) %>% 
-  rename(count = n) %>%
-  slice_max(n = 5, order_by = count) %>%
-  mutate(directional_count = ifelse(voted_for_petitioner == TRUE, count, count * -1)) %>%
-  ggplot(aes(x = reorder(word, directional_count), y = directional_count)) +
-  geom_col(aes(fill = voted_for_petitioner)) +
-  geom_label(aes(label = word)) +
-  labs(title = "Top Words by Vote Type", x = "", y = "") +
-  scale_x_discrete(labels = NULL, breaks = NULL) +
-  theme(legend.position = "top") +
-  coord_flip() +
-  facet_wrap(~ justice, scales = "free")
 
 
-
-# no justice groups...
-all_cases_with_votes %>% 
-  drop_na(voted_for_petitioner, unigrams) %>% 
-  group_by(voted_for_petitioner) %>% 
-  unnest_tokens(word, unigrams) %>% 
-  count(word) %>% 
-  arrange(voted_for_petitioner, -n) %>% 
-  rename(count = n) %>% 
-  slice_max(n = 5, order_by = count) %>%
-  mutate(directional_count = ifelse(voted_for_petitioner == TRUE, count, count * -1)) %>%
-  ggplot(aes(x = reorder(word, directional_count), y = directional_count)) +
-  geom_col(aes(fill = voted_for_petitioner)) +
-  geom_label(aes(label = word)) +
-  labs(x = "", y = "Number of Times Word was Used") +
-  coord_flip()
+## -----> tf-idf done the right way
 
 
 # GOOD ENOUGH
-# tf-idf for all justices
+# tf-idf for all justices # not conditioned on vote type
+# explains each justices unique vocabulary
 all_cases_with_votes %>% 
   drop_na(unigrams) %>% 
   unnest_tokens(word, unigrams) %>% 
@@ -877,29 +661,13 @@ all_cases_with_votes %>%
 ## talk about "Dah", show "dah" screenshots
 
 
-## GOOD ENOUGH
-# tf-idf for Roberts FOR vs AGAINST
-all_cases_with_votes %>% 
-  drop_na(unigrams) %>% 
-  filter(justice == "CHIEF JUSTICE ROBERTS") %>% 
-  mutate(voted_for_petitioner = ifelse(voted_for_petitioner == TRUE, "Voted For Petitioner", "Voted Against Petitioner")) %>% 
-  unnest_tokens(word, unigrams) %>% 
-  count(voted_for_petitioner, word, sort = TRUE) %>% 
-  bind_tf_idf(word, voted_for_petitioner, n) %>% 
-  group_by(voted_for_petitioner) %>% 
-  slice_max(tf_idf, n = 5) %>% 
-  ungroup() %>% 
-  mutate(word = reorder(word, tf_idf)) %>%
-  ggplot(aes(tf_idf, word)) +
-  geom_col(aes(fill = voted_for_petitioner), show.legend = FALSE) +
-  geom_label(aes(label = word)) +
-  scale_fill_manual(values = c("orangered1", "dodgerblue4")) +
-  scale_y_discrete(labels = NULL, breaks = NULL) +
-  labs(x = "tf-idf for Chief Justice Roberts", y = NULL) +
-  facet_wrap(~ voted_for_petitioner, ncol = 2, scales = "free")
 
+
+# GOOD GOOD GOOD
 # tf-idf for Roberts FOR vs AGAINST
 # with special bar directions and absolute value scale
+# tf-idf for Roberts #conditioned on FOR vs AGAINST
+# explains unique language from roberts when based on how he feels about the petitioner's argument
 all_cases_with_votes %>% 
   drop_na(unigrams) %>% 
   filter(justice == "CHIEF JUSTICE ROBERTS") %>% 
@@ -917,6 +685,6 @@ all_cases_with_votes %>%
   geom_label(aes(label = word)) +
   scale_fill_manual(values = c("orangered1", "dodgerblue4")) +
   scale_y_discrete(labels = NULL, breaks = NULL) +
-  labs(x = "tf-idf for Chief Justice Roberts", y = NULL) +
+  labs(x = "tf-idf of Chief Justice Roberts", y = NULL) +
   facet_wrap(~ voted_for_petitioner, ncol = 2, scales = "free") +
   scale_x_continuous(labels = abs) # must be the last line
