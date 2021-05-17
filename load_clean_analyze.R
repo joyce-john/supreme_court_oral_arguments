@@ -640,6 +640,22 @@ all_cases_with_votes %>%
 
 sentiment_table
 
+# density conditioned on vote type
+plot_sentiment_density_vote_type <-
+all_cases_with_votes %>%
+  drop_na(voted_for_petitioner) %>% 
+  ggplot(aes(sentiment_score_afinn, fill = voted_for_petitioner)) +
+  geom_density(alpha = 0.7) +
+  labs(x = 'Mean Sentiment Score (afinn)', y = "Density") +
+  geom_vline(xintercept = 0, linetype = "dotted") +
+  scale_x_continuous(limits = c(-10,10)) +
+  scale_fill_manual(name = "Vote Type", labels = c("Against the Petitioner", "For the Petitioner"), values = c("orangered1", "dodgerblue4")) +
+  facet_wrap(~ justice) +
+  theme(legend.position = "top")
+
+# show plot
+plot_sentiment_density_vote_type
+
 ## ----------------------------------------------------------------------------> token analysis
 
 ## -----> a few more stop words 
