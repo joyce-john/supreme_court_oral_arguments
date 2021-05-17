@@ -59,6 +59,8 @@ Mean sentiment scores are calculated like this:
 * **sentimentr**: weighted mean of sentiment score for all sentences, with weights determined by the number of words in each sentence  
 * **afinn**: remove stop words from text, take mean value of remaining words which have a sentiment score in the afinn lexicon  
 
+Further manual analysis is done after building the table.  
+
 
 ```{r load and process PDFs}
 
@@ -852,7 +854,7 @@ all_cases_with_votes %>%
 plot_top_unigrams_by_vote_type_ginsburg_gorsuch
 
 ```  
-These charts provide a little insight about what is important to the justices. Looking at the blue bars for Ginsburg, we can see that she talks about gender and equality - no surprise given her outstanding achievements in this domain. For Gorsuch, we spot some bedrock convervative themes: religion, speech, and the constitution ("amendment"). 
+These charts provide a little insight about what is important to the justices. Looking at the blue bars for Ginsburg, we can see that she talks about gender and equality - no surprise given her outstanding achievements in this domain. For Gorsuch, we spot some bedrock conservative themes: religion, speech, and the constitution ("amendment"). 
 
 We also notice that one of the top words spoken by Gorsuch in cases where he voted for the petitioner is "yeah". This isn't an ideological insight, but it's an interesting pattern for anyone who wants to predict how he will vote.  
 
@@ -950,38 +952,47 @@ Words like "claim" and "theory" are often used when distancing one's self from a
 
 Among the blue columns, I would like to draw your attention to the word "yeah". This is something we saw [previously with Gorsuch](#gorsuchbackref): a mannerism of saying "yeah" during trials when he agrees with the petitioner's argument.  
 
-## Wrap Up
+# Wrap Up  
 
+So, what's it good for?  
 
+This project is about studying the speaking habits of the justices during oral arguments. It could be the starting point for building a predictive model for case outcomes ([as others have done](https://fivethirtyeight.com/features/how-to-read-the-mind-of-a-supreme-court-justice/)), but the primary purpose is to gain a deeper understanding of the human beings on the court.  
 
-``` {r test plot}
-plot_top_unigrams_by_vote_type_ginsburg_gorsuch <- 
-all_cases_with_votes %>% 
-  filter(justice %in% c("JUSTICE GINSBURG", "JUSTICE GORSUCH")) %>% 
-  drop_na(voted_for_petitioner, unigrams) %>% 
-  group_by(justice, voted_for_petitioner) %>% 
-  unnest_tokens(word, unigrams) %>% 
-  anti_join(ggplot_stop_word_list) %>% 
-  count(word) %>% 
-  arrange(justice, voted_for_petitioner, -n) %>% 
-  rename(count = n) %>% 
-  slice_max(n = 5, order_by = count) %>% ### NUMBER of words per group here
-  mutate(directional_count = ifelse(voted_for_petitioner == TRUE, count, count * -1)) %>%
-  ggplot(aes(x = reorder(word, directional_count), y = directional_count)) +
-  geom_col_interactive(aes(fill = voted_for_petitioner, tooltip = paste0(count, " times in this context"))) +
-  geom_label(aes(label = word)) +
-  labs(title = "Top Words by Vote Type", x = "", y = "Number of Times Word Spoken") +
-  scale_x_discrete(labels = NULL, breaks = NULL) +
-  scale_y_continuous(breaks = c(-20, -10, 0, 10, 20), limits = c(-20, 20), labels = c("20", "10", "0", "10", "20")) +
-  theme(legend.position = "top") +
-  scale_fill_manual(name = "", labels = c("Voted Against the Petitioner", "Voted For the Petitioner"), values = c("orangered1", "dodgerblue4")) +
-  coord_flip() +
-  facet_wrap(~ justice, scales = "free")
+Here is a short, non-exhaustive, non-scientific recap of things we learned about the justices:  
 
-# show plot
-ggiraph(ggobj = plot_top_unigrams_by_vote_type_ginsburg_gorsuch)
-```
+**CHIEF JUSTICE ROBERTS**  
+* sentiment behind his words might not match his real beliefs  
+* often instructs lawyers to argue their points "briefly"  
+* says "claim" and "theory" when he disagrees with your argument, "yeah" when he buys it  
 
-```{}
-, message = FALSE, warning = FALSE
-```
+**JUSTICE THOMAS**  
+* doesn't talk much  
+
+**JUSTICE BREYER**  
+* talks a lot  
+* says "dah-dah-dah" in the middle of his hypothetical examples  
+
+**JUSTICE ALITO**  
+* talks a lot more when he disagrees with you  
+* ask more questions when he disagrees with you  
+
+**JUSTICE SOTOMAYOR**  
+* might interrupt you a lot; doesn't mean she is against your argument  
+* sentiment behind her words match her beliefs pretty well, especially if the sentiment is extreme  
+
+**JUSTICE KAGAN**  
+* she's the only justice who talks *more* when she agrees with you  
+* sentiment is negative on average, but especially when she disagrees with you  
+
+**JUSTICE GORSUCH**  
+* asks more questions when he disagrees with you  
+* interrupts more when he disagrees with you  
+* says "yeah" when he agrees with you, talks about the government and courts when he doesn't  
+
+**JUSTICE KAVANAUGH**  
+* quiet when he agrees with you, moderately prolix when he doesn't  
+* asks more questions when he disagrees with you  
+
+**JUSTICE GINSBURG**  
+* commonly negative in sentiment, but especially when she disagrees with you  
+* talks about equality when she agrees with you, talks about government and courts when she doesn't  
