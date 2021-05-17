@@ -722,7 +722,11 @@ I decided to proceed with the sentiment analysis using the **afinn** lexicon on 
 
 ### Sentiment Distribution by Justice  
 
+Let's take a look at the overall sentiment distributions for the individual justices in the 2019 session. If you blur your eyes and take a few steps back from your monitor, these distributions look surprisingly normal-ish. No justice is skewed drastically to the left or right, though there are some apparent tails.   
 
+Gorsuch has an interesting pair of peaks in his distribution, with a depression around the neutral zero line. More on that in the next section.  
+
+Do you notice any pattern regarding which justices lean to the left of the neutral line?
 
 ```{r sentiment density by justice}
 
@@ -740,8 +744,69 @@ all_cases_with_votes %>%
 # show plot
 plot_sentiment_density_all_justices
 
-```
+```  
 
+According to my eyes, it's justices Breyer, Ginsburg, Kagan, and Sotomayor. But no need to trust my eyes, consider the table below:  
+
+```{r mean sentiment table}
+
+# we can see some interesting patterns visually...
+# the Breyer, Ginsburg, Kagan, and Sotomayor seem to lean a bit negative
+# these are the liberal justices
+# confirm the negativity with the table
+sentiment_table <-
+all_cases_with_votes %>% 
+  group_by(justice) %>% 
+  summarize(`Mean Sentiment Score` = mean(sentiment_score_afinn, na.rm = TRUE)) %>% 
+  rename(Justice = justice) %>% 
+  arrange(`Mean Sentiment Score`)
+
+sentiment_table %>% 
+  kable() %>% 
+  kable_material("hover")
+
+```  
+Interesting. Breyer, Ginsburg, Kagan, and Sotomayor represent the liberal wing of the court. They sit at the top of this table for being the most negative, on average. The conservative justices, on the other, are lumped together at the bottom of this table. (If the pattern were perfect, Alito and Roberts would switch places, though.)  
+Why might this be? It could be a result of the particular cases brought before the court this year. Donald Trump and Attorney General William Barr were party to [a](https://en.wikipedia.org/wiki/Trump_v._Mazars_USA,_LLP) [handful](https://en.wikipedia.org/wiki/Trump_v._Vance) [of](https://en.wikipedia.org/wiki/Barr_v._American_Assn._of_Political_Consultants,_Inc.) [cases](https://en.wikipedia.org/wiki/Barton_v._Barr) in this session. Or it could be that these four justices [have banded together and gotten defensive](https://www.npr.org/2020/07/15/891185410/in-supreme-court-term-liberals-stuck-together-while-conservatives-appeared-fract) in a court where conservatives outnumber them.  
+
+### Sentiment Distribution by Justice, Conditioned by Vote Type
+
+When we break down the distribution by vote type, we see a similar pattern as we did with the other metrics we studied: some justices exhibit obviously different patterns based on their opinion of the petitioner's argument, while others are a bit harder to read.  
+
+```{r sentiment distribution by vote type}
+
+# density conditioned on vote type
+plot_sentiment_density_vote_type <-
+all_cases_with_votes %>%
+  drop_na(voted_for_petitioner) %>% 
+  ggplot(aes(sentiment_score_afinn, fill = voted_for_petitioner)) +
+  geom_density(alpha = 0.7) +
+  labs(x = 'Mean Sentiment Score (afinn)', y = "Density") +
+  geom_vline(xintercept = 0, linetype = "dotted") +
+  scale_x_continuous(limits = c(-10,10)) +
+  scale_fill_manual(name = "Vote Type", labels = c("Against the Petitioner", "For the Petitioner"), values = c("orangered1", "dodgerblue4")) +
+  facet_wrap(~ justice) +
+  theme(legend.position = "top")
+
+# show plot
+plot_sentiment_density_vote_type
+
+
+```  
+
+For Gorsuch, his conditional distributions are nearly mirrored images of each other: there is one distribution which describes his sentiment for arguments he agrees with, and flipped one for arguments he doesn't agree with. We can say the same for Sotomayor. For Sotomayor, we should also note that there is no overlap at the extreme ends of the spectrum. In her *most negative* cases, she always voted **against** the petitioner. In her *most positive* cases, she always voted **for** the petitioner.  
+
+Ginsburg, Kagan, and Thomas have easy-to-read, incongruent distributions based on their eventual vote type.  
+
+Alito and Breyer are a bit more even-handed, at least in this regard. Perhaps that's easy when you are always slightly grumpy.  
+
+Chief Justice Roberts has a distribution that makes you look twice. Yes, the mean sentiment score is positive when voting against the petitioner, and negative when voting for the petitioner. (Remember, this analysis only analyzes the interaction between the justices and petitioners - the other side of any case, the respondents, is excluded. So this seems very odd!)  
+
+I will speculate about why his sentiment distribution seems out of line with his votes: 
+
+Roberts has a tough job. He understands that he is often the "swing vote" in cases decided by this court. He knows that people see that Supreme Court as political, and [he doesn't like that](https://www.reuters.com/article/us-usa-court-chiefjustice-idUSKBN1WA08F). Additionally, as the chief justice, he has a certain duty to lead the court - and to lead courtroom discussions - in an unbiased way. For these reasons, I think we may not always see a candid display of his thoughts during oral arguments, but rather an attempt to appear neutral and handle both sides of the case fairly. If he already has an opinion during oral arguments, he may be trying to conceal it.  
+
+## Vocabulary Analysis
 
 
 
