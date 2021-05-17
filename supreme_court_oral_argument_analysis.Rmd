@@ -45,7 +45,7 @@ At a high level, the PDF mining process works like this:
 
 ![](assets/diagrams/data_collection_process.jpg)  
 
-## Text Analysis  
+## Automated Text Analysis  
 
 There are four components of text analysis which happen when building the table:  
 
@@ -56,14 +56,29 @@ There are four components of text analysis which happen when building the table:
 * count the number of times the justice **interrupted** the petitioner  
 * count the number of **words spoken** during Q&A with the petitioner  
 
+Further manual analysis is done after building the table.  
+
+### More on Sentiment Scores
+
 For every case, I compute a **mean sentiment score** for the justices' speech with both methods. I chose these two methods because they both produce numerical scores, which allows us to compare the degree of positivity/negativity in different circumstances. The **sentimentr** method allows for calculating sentiment on a whole sentence, which has the potential to uncover critical differences in meaning due to negation of positive/negative terms (e.g. "That's *not* good news").     
 
 Mean sentiment scores are calculated like this:  
 
 * **sentimentr**: weighted mean of sentiment score for all sentences, with weights determined by the number of words in each sentence  
 * **afinn**: remove stop words from text, take mean value of remaining words which have a sentiment score in the afinn lexicon  
+  
+### More on Detecting Interruptions  
 
-Further manual analysis is done after building the table.  
+It's possible to detect interruptions automatically because court stenographers have an extremely detailed and consistent way of recording everything vocalized during a trial. They don't just record words; they also record pauses, stutters, and abrupt stops committed by the speakers. In our text data, any one of these is represented by two dashes. We can detect interruptions as **lines that end with an abrupt stop, followed by text from another speaker**. Consider the example below:   
+
+![](assets/kavanaugh_interruption/interruption_by_kavanaugh.jpg)    
+  
+Mr. Gant's line ends with -- and is followed by Justice Kavanaugh starting a new line. This is an interruption by Kavanaugh. After cleaning the text (removing line numbers, excess spaces, etc.) we can detect interruptions by Kavanaugh with a regular expression like this: `"-- JUSTICE KAVANAUGH"`.  
+  
+This process is straightforward thanks to the extremely standardized nature of the court reporting: abrupt stops are always represented with two dashes, names are written in all caps when there is a change of speaker, and speaker names are always written the same way within a document. We don't have to worry about accidentally counting a stutter as an interruption, because a stutter isn't followed `JUSTICE NAME` in all caps in the dialogue.  
+  
+To handle this task automatically, I use a different regular expression generated for each justice.  
+  
 
 
 ```{r load and process PDFs, echo = FALSE, warning = FALSE, message = FALSE}
@@ -558,7 +573,7 @@ questions_p_value <- round(questions_t_test$p.value, 2)
 
 ```
 
-Yes, according to a quick t-test: the estimated average number of questions from a justice who votes **FOR** the petitioner is `r questions_mean_voted_for_petitioner` compared to `r questions_mean_voted_against_petitioner` from a justice who votes **AGAINST**, with a p-value of `r questions_p_value`. But that's if we consider all justices together. Take a look at the individual justices below:  
+Yes, according to a quick t-test in R: the estimated average number of questions from a justice who votes **FOR** the petitioner is `r questions_mean_voted_for_petitioner` compared to `r questions_mean_voted_against_petitioner` from a justice who votes **AGAINST**, with a p-value of `r questions_p_value`. But that's if we consider all justices together. Take a look at the individual justices below:  
 
 ```{r questions boxplot, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 10, fig.width = 10}
 
@@ -995,7 +1010,7 @@ Here is a short, non-exhaustive, non-scientific recap of things we learned about
 **JUSTICE KAGAN**  
 
 * she's the only justice who talks *more* when she agrees with you  
-* sentiment is negative on average, but especially when she disagrees with you  
+* sentiment is negative on average, and extra negative when she disagrees with you  
 
 **JUSTICE GORSUCH**  
 
@@ -1010,6 +1025,6 @@ Here is a short, non-exhaustive, non-scientific recap of things we learned about
 
 **JUSTICE GINSBURG**  
 
-* commonly negative in sentiment, but especially when she disagrees with you  
+* commonly negative in sentiment, and even more so when she disagrees with you  
 * interested in topics concerning equality  
-* talks about government and courts when she doesn't agree with 
+* talks about government and courts when she doesn't agree with you  
