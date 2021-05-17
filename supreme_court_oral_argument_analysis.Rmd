@@ -41,7 +41,7 @@ At a high level, the PDF mining process works like this:
 6. Repeat every justice in the case  
 7. Repeat for every case PDF from 2019  
 
-![](assets/diagrams/data_collection_process.jpg)  
+![data process diagram](assets/diagrams/data_collection_process.jpg)  
 
 ## Text Analysis  
 
@@ -806,7 +806,151 @@ I will speculate about why his sentiment distribution seems out of line with his
 
 Roberts has a tough job. He understands that he is often the "swing vote" in cases decided by this court. He knows that people see that Supreme Court as political, and [he doesn't like that](https://www.reuters.com/article/us-usa-court-chiefjustice-idUSKBN1WA08F). Additionally, as the chief justice, he has a certain duty to lead the court - and to lead courtroom discussions - in an unbiased way. For these reasons, I think we may not always see a candid display of his thoughts during oral arguments, but rather an attempt to appear neutral and handle both sides of the case fairly. If he already has an opinion during oral arguments, he may be trying to conceal it.  
 
-## Vocabulary Analysis
+## Vocabulary Analysis  
+
+### Ginsburg & Gorsuch: Top Words by Vote Type {#gorsuchbackref}
+
+I wanted to see if there were any interesting differences in the vocabularies of the justices. To start off, I simply counted the number of times that the justices said different words, and ranked them from most frequent to least frequent. This was not interesting; it turns out that all Supreme Justices say the words "person" and "law". So, I added a few more terms to my custom stop word list (*stop words* are words excluded from the analysis), and I decided to condition these word rankings on vote type.  
+
+Take a look at that words used by Ginsburg and Gorsuch:  
+
+```{r ginsburg and gorsuch top unigrams by vote type}
+
+## -----> a few more stop words 
+
+# a few more stop words - these words were making visualizations less informative
+ggplot_stop_word_list <- data.frame(word = c("person", "court", "law", "question", "read", "people"))
+
+## -----> sort of a roll your own td-idf solution....
+
+
+# Ginsburg and Gorsuch, top unigrams by vote type, horizontal bars
+plot_top_unigrams_by_vote_type_ginsburg_gorsuch <- 
+all_cases_with_votes %>% 
+  filter(justice %in% c("JUSTICE GINSBURG", "JUSTICE GORSUCH")) %>% 
+  drop_na(voted_for_petitioner, unigrams) %>% 
+  group_by(justice, voted_for_petitioner) %>% 
+  unnest_tokens(word, unigrams) %>% 
+  anti_join(ggplot_stop_word_list) %>% 
+  count(word) %>% 
+  arrange(justice, voted_for_petitioner, -n) %>% 
+  rename(count = n) %>% 
+  slice_max(n = 5, order_by = count) %>% ### NUMBER of words per group here
+  mutate(directional_count = ifelse(voted_for_petitioner == TRUE, count, count * -1)) %>%
+  ggplot(aes(x = reorder(word, directional_count), y = directional_count)) +
+  geom_col(aes(fill = voted_for_petitioner)) +
+  geom_label(aes(label = word)) +
+  labs(title = "Top Words by Vote Type", x = "", y = "Number of Times Word Spoken") +
+  scale_x_discrete(labels = NULL, breaks = NULL) +
+  scale_y_continuous(breaks = c(-20, -10, 0, 10, 20), limits = c(-20, 20), labels = c("20", "10", "0", "10", "20")) +
+  theme(legend.position = "top") +
+  scale_fill_manual(name = "", labels = c("Voted Against the Petitioner", "Voted For the Petitioner"), values = c("orangered1", "dodgerblue4")) +
+  coord_flip() +
+  facet_wrap(~ justice, scales = "free")
+
+# show plot
+plot_top_unigrams_by_vote_type_ginsburg_gorsuch
+
+```  
+These charts provide a little insight about what is important to the justices. Looking at the blue bars for Ginsburg, we can see that she talks about gender and equality - no surprise given her outstanding achievements in this domain. For Gorsuch, we spot some bedrock convervative themes: religion, speech, and the constitution ("amendment"). 
+
+We also notice that one of the top words spoken by Gorsuch in cases where he voted for the petitioner is "yeah". This isn't an ideological insight, but it's an interesting pattern for anyone who wants to predict how he will vote.  
+
+Among the orange bars, we see an interesting point of commonality between two very different jurists: words about the government, the courts, and the legal process.  
+
+### TF-IDF for all Justices  
+
+Term frequency-inverse document frequency (TF-IDF) is a measure of how important one word is *to a single document* after considering the presence of that word *across a whole collection of documents*. A word that is *rare in general* but appears *frequently in one document and not others* will have a high TF-IDF; a word that is *common* and appears *frequently in the whole collection of documents* will have a low TF-IDF. In this way, TF-IDF helps us identify the **distinguishing words** associated with a document.  
+
+Below, we treat each justice's speech across the whole 2019 session as a separate document. (For example: all the words Roberts said during oral arguments this year is treated as one big document, all the words Thomas said is a separate document, all the words that Sotomayor said is another document, etc.)  
+
+What words distinguish the justices from one another?  
+
+```{r tf-idf for all justices}
+
+## -----> tf-idf done the right way
+
+# tf-idf for all justices # not conditioned on vote type
+# explains each justices unique vocabulary
+plot_tf_idf_all_justices <-
+all_cases_with_votes %>% 
+  drop_na(unigrams) %>% 
+  unnest_tokens(word, unigrams) %>% 
+  count(justice, word, sort = TRUE) %>% 
+  bind_tf_idf(word, justice, n) %>% 
+  group_by(justice) %>% 
+  slice_max(tf_idf, n = 7) %>% 
+  ungroup() %>% 
+  mutate(word = reorder(word, tf_idf)) %>%
+  ggplot(aes(tf_idf, word, fill = justice)) +
+  geom_col(show.legend = FALSE) +
+  labs(x = "tf-idf: Distintive Vocabulary Among the Justices", y = NULL) +
+  facet_wrap(~justice, ncol = 3, scales = "free")
+
+# show plot
+plot_tf_idf_all_justices
+
+## talk about "Dah", show "dah" screenshots
+```  
+
+Here, we only gain less insight about the justices' beliefs, and we learn more about their mannerisms. Justice Robert's speech is distinguished by the word "briefly"; probably because he directing the trial ("Briefly, counsel."). Justice Sotomayor says "concealing" a lot more than other justices; perhaps she thinks that the lawyers are hiding the true nature of their arguments. Justice Breyer is unique in saying... "dah"?  
+
+Not a text-parsing error. Here are some snippets of Breyer using the term "dah-dah-dah":  
+
+
+![dah_2](assets/breyer_dah/dah2.jpg)  
+![dah_3](assets/breyer_dah/dah3.jpg)  
+![dah_4](assets/breyer_dah/dah4.jpg)  
+
+We can see why this word scored such a high TF-IDF: it is *highly* unique to Justice Breyer. If you gave me an unlabeled transcript of Supreme Court arguments and asked me to find a paragraph where Breyer was speaking, the first thing I would do is search for the term "dah".  
+
+### TF-IDF for a Single Justice, Conditioned on Vote Type
+
+If we just focus on one justice, and treat their speech before voting **for** and **against** the petitioner as two separate documents, can we identify any terms that unique to their speech based on how they will vote later?  
+
+Let's try it on Chief Justice Roberts, who is often seen as the swing vote:  
+
+```{r tf-idf roberts conditioned on vote type}
+
+# tf-idf for Roberts FOR vs AGAINST
+# with special bar directions and absolute value scale
+# explains unique language from roberts when based on how he feels about the petitioner's argument
+plot_tf_idf_roberts_vote_type <-
+all_cases_with_votes %>% 
+  drop_na(unigrams) %>% 
+  filter(justice == "CHIEF JUSTICE ROBERTS") %>% 
+  mutate(voted_for_petitioner = ifelse(voted_for_petitioner == TRUE, "Voted For Petitioner", "Voted Against Petitioner")) %>% 
+  unnest_tokens(word, unigrams) %>% 
+  count(voted_for_petitioner, word, sort = TRUE) %>% 
+  bind_tf_idf(word, voted_for_petitioner, n) %>% 
+  group_by(voted_for_petitioner) %>% 
+  slice_max(tf_idf, n = 5) %>% 
+  ungroup() %>% 
+  mutate(word = reorder(word, tf_idf)) %>%
+  mutate(tf_idf = ifelse(voted_for_petitioner == "Voted For Petitioner", tf_idf, tf_idf * -1)) %>%  #flip direction of bars for "voted against"
+  ggplot(aes(tf_idf, word)) +
+  geom_col(aes(fill = voted_for_petitioner), show.legend = FALSE) +
+  geom_label(aes(label = word)) +
+  scale_fill_manual(values = c("orangered1", "dodgerblue4")) +
+  scale_y_discrete(labels = NULL, breaks = NULL) +
+  labs(x = "tf-idf of Chief Justice Roberts", y = NULL) +
+  facet_wrap(~ voted_for_petitioner, ncol = 2, scales = "free") +
+  scale_x_continuous(labels = abs) # must be the last line
+
+# show plot
+plot_tf_idf_roberts_vote_type
+
+
+
+```  
+
+We have a mix of signal and noise. Some of these terms are informative, but some of them are likely particular to the cases which came before the court in this session (such as "groundwater").  
+
+Words like "claim" and "theory" are often used when distancing one's self from another party's beliefs. "Frivolous" is not a word you want to hear come out of a judge's mouth during your oral arguments. We can see why these unigrams distinguish the **voted against** text from the **voted for** text.  
+
+Among the blue columns, I would like to draw your attention to the word "yeah". This is something we saw [previously with Gorsuch](#gorsuchbackref): a mannerism of saying "yeah" during trials when he agrees with the petitioner's argument.  
+
+## Wrap Up
 
 
 
