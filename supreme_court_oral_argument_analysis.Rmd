@@ -5,7 +5,7 @@ author: "John Joyce"
 date: "5/16/2021"
 output:
   html_document:
-    theme: "readable"
+    theme: "lumen"
     toc: true
     toc_float: true
 ---
@@ -42,7 +42,7 @@ At a high level, the PDF mining process works like this:
 6. Repeat every justice in the case  
 7. Repeat for every case PDF from 2019  
 
-![*Process Diagram*](assets/diagrams/data_collection_process.jpg)  
+![](assets/diagrams/data_collection_process.jpg)  
 
 ## Text Analysis  
 
@@ -55,7 +55,7 @@ There are four components of text analysis which happen when building the table:
 * count the number of times the justice **interrupted** the petitioner  
 * count the number of **words spoken** during Q&A with the petitioner  
 
-For every case, I compute a **mean sentiment score** for the justices' speech with both methods. I chose these two methods because they both produce numerical scores, which allows us to compare the degree of positivity/negativity in different circumstances. The `sentimentr` method allows for calculating sentiment on a whole sentence, which has the potential to uncover critical differences in meaning due to negation of positive/negative terms (e.g. "That's *not* good news").     
+For every case, I compute a **mean sentiment score** for the justices' speech with both methods. I chose these two methods because they both produce numerical scores, which allows us to compare the degree of positivity/negativity in different circumstances. The **sentimentr** method allows for calculating sentiment on a whole sentence, which has the potential to uncover critical differences in meaning due to negation of positive/negative terms (e.g. "That's *not* good news").     
 
 Mean sentiment scores are calculated like this:  
 
@@ -903,7 +903,7 @@ Here, we only gain less insight about the justices' beliefs, and we learn more a
 Not a text-parsing error. Here are some snippets of Breyer using the term "dah-dah-dah":  
   
   
-![*Examples of Breyer saying "dah"*](assets/breyer_dah/dah_consolidated.jpg)  
+![](assets/breyer_dah/dah_consolidated.jpg)  
   
   
 We can see why this word scored such a high TF-IDF: it is *highly* unique to Justice Breyer. If you gave me an unlabeled transcript of Supreme Court arguments and asked me to find a paragraph where Breyer was speaking, the first thing I would do is search for the term "dah".  
