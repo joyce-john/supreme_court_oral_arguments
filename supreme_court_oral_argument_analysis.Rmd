@@ -16,6 +16,7 @@ knitr::opts_chunk$set(warning = FALSE)
 knitr::opts_chunk$set(message = FALSE)
 ```
 
+
 # What is this project about?
 
 The Supreme Court of the United States is one of the most powerful organs of American government. What makes it different from other institutions - and what makes it fascinating - is that the actions of this body depend entirely on the opinions of a handful of individuals who hold their jobs for decades and perform their duties in public. No other government department is so *consistently personal*. Anyone who wants to understand the court needs to understand the tendencies of its members.  
@@ -662,7 +663,7 @@ I calculated sentiment scores on complete sentences with the **sentimentr** pack
 
 The two methods have different numerical scales, but they share a common principal: zero is neutral, positive numbers are "positive" emotions, negative numbers are "negative" emotions. Now, take a look at the score distributions in our data:  
 
-```{r afinn vs sentimentr comparison, echo = FALSE, warning = FALSE, message = FALSE}
+```{r afinn vs sentimentr comparison, echo = FALSE, warning = FALSE, message = FALSE, fig.align = 'center'}
 
 #SHOW PLOTS SIDE BY SIDE TO ILLUSTRATE DIFFERENT MEANS (positive leaning VS negative leaning)
 
@@ -732,7 +733,7 @@ Gorsuch has an interesting pair of peaks in his distribution, with a depression 
 
 Do you notice any pattern regarding which justices lean to the left of the neutral line?
 
-```{r sentiment density by justice, echo = FALSE, warning = FALSE, message = FALSE}
+```{r sentiment density by justice, echo = FALSE, warning = FALSE, message = FALSE, fig.align = 'center'}
 
 # sentiment distribution by justice, density
 plot_sentiment_density_all_justices <-
@@ -778,7 +779,7 @@ Why might this be? It could be a result of the particular cases brought before t
 
 When we break down the distribution by vote type, we see a similar pattern as we did with the other metrics we studied: some justices exhibit obviously different patterns based on their opinion of the petitioner's argument, while others are a bit harder to read.  
 
-```{r sentiment distribution by vote type, echo = FALSE, warning = FALSE, message = FALSE}
+```{r sentiment distribution by vote type, echo = FALSE, warning = FALSE, message = FALSE, fig.align = 'center'}
 
 # density conditioned on vote type
 plot_sentiment_density_vote_type <-
@@ -819,14 +820,14 @@ I wanted to see if there were any interesting differences in the vocabularies of
 
 Take a look at that words used by Ginsburg and Gorsuch:  
 
-```{r ginsburg and gorsuch top unigrams by vote type, echo = FALSE, warning = FALSE, message = FALSE}
+```{r ginsburg and gorsuch top unigrams by vote type, echo = FALSE, warning = FALSE, message = FALSE, fig.align = 'center'}
 
 ## -----> a few more stop words 
 
 # a few more stop words - these words were making visualizations less informative
 ggplot_stop_word_list <- data.frame(word = c("person", "court", "law", "question", "read", "people"))
 
-## -----> sort of a roll your own td-idf solution....
+## -----> sort of a roll your own tf-idf solution....
 
 
 # Ginsburg and Gorsuch, top unigrams by vote type, horizontal bars
@@ -848,7 +849,8 @@ all_cases_with_votes %>%
   labs(title = "Top Words by Vote Type", x = "", y = "Number of Times Word Spoken") +
   scale_x_discrete(labels = NULL, breaks = NULL) +
   scale_y_continuous(breaks = c(-20, -10, 0, 10, 20), limits = c(-20, 20), labels = c("20", "10", "0", "10", "20")) +
-  theme(legend.position = "top") +
+  theme(legend.position = "top",
+        plot.title = element_text(hjust = 0.5)) +
   scale_fill_manual(name = "", labels = c("Voted Against the Petitioner", "Voted For the Petitioner"), values = c("orangered1", "dodgerblue4")) +
   coord_flip() +
   facet_wrap(~ justice, scales = "free")
@@ -857,6 +859,7 @@ all_cases_with_votes %>%
 plot_top_unigrams_by_vote_type_ginsburg_gorsuch
 
 ```  
+  
 These charts provide a little insight about what is important to the justices. Looking at the blue bars for Ginsburg, we can see that she talks about gender and equality - no surprise given her outstanding achievements in this domain. For Gorsuch, we spot some bedrock conservative themes: religion, speech, and the constitution ("amendment"). 
 
 We also notice that one of the top words spoken by Gorsuch in cases where he voted for the petitioner is "yeah". This isn't an ideological insight, but it's an interesting pattern for anyone who wants to predict how he will vote.  
@@ -871,7 +874,7 @@ Below, we treat each justice's speech across the whole 2019 session as a separat
 
 What words distinguish the justices from one another?  
 
-```{r tf-idf for all justices, echo = FALSE, warning = FALSE, message = FALSE}
+```{r tf-idf for all justices, echo = FALSE, warning = FALSE, message = FALSE, fig.align = 'center'}
 
 ## -----> tf-idf done the right way
 
@@ -889,7 +892,7 @@ all_cases_with_votes %>%
   mutate(word = reorder(word, tf_idf)) %>%
   ggplot(aes(tf_idf, word, fill = justice)) +
   geom_col(show.legend = FALSE) +
-  labs(x = "tf-idf: Distintive Vocabulary Among the Justices", y = NULL) +
+  labs(x = "TF-IDF: Distintive Vocabulary Among the Justices", y = NULL) +
   facet_wrap(~justice, ncol = 3, scales = "free")
 
 # show plot
@@ -908,13 +911,15 @@ Not a text-parsing error. Here are some snippets of Breyer using the term "dah-d
   
 We can see why this word scored such a high TF-IDF: it is *highly* unique to Justice Breyer. If you gave me an unlabeled transcript of Supreme Court arguments and asked me to find a paragraph where Breyer was speaking, the first thing I would do is search for the term "dah".  
 
-### TF-IDF for a Single Justice, Conditioned on Vote Type
+### TF-IDF for Roberts, Conditioned on Vote Type
 
 If we just focus on one justice, and treat their speech before voting **for** and **against** the petitioner as two separate documents, can we identify any terms that unique to their speech based on how they will vote later?  
 
 Let's try it on Chief Justice Roberts, who is often seen as the swing vote:  
 
-```{r tf-idf roberts conditioned on vote type, echo = FALSE, warning = FALSE, message = FALSE}
+```{r tf-idf roberts conditioned on vote type, echo = FALSE, warning = FALSE, message = FALSE, fig.align = 'center', fig.width = 12}
+
+# high value for fig.width to avoid cutting image off in knitr render
 
 # tf-idf for Roberts FOR vs AGAINST
 # with special bar directions and absolute value scale
@@ -937,7 +942,7 @@ all_cases_with_votes %>%
   geom_label(aes(label = word)) +
   scale_fill_manual(values = c("orangered1", "dodgerblue4")) +
   scale_y_discrete(labels = NULL, breaks = NULL) +
-  labs(x = "tf-idf of Chief Justice Roberts", y = NULL) +
+  labs(x = "TF-IDF of Chief Justice Roberts", y = NULL) +
   facet_wrap(~ voted_for_petitioner, ncol = 2, scales = "free") +
   scale_x_continuous(labels = abs) # must be the last line
 
