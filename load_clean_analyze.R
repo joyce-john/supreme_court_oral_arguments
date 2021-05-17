@@ -728,7 +728,6 @@ plot_tf_idf_all_justices
 # GOOD GOOD GOOD
 # tf-idf for Roberts FOR vs AGAINST
 # with special bar directions and absolute value scale
-# tf-idf for Roberts #conditioned on FOR vs AGAINST
 # explains unique language from roberts when based on how he feels about the petitioner's argument
 plot_tf_idf_roberts_vote_type <-
 all_cases_with_votes %>% 
