@@ -491,7 +491,7 @@ Before we go any further into the analysis, I have to address one thing: this is
 
 Of the 56 arguments analyzed, Thomas spoke during 10 of them. I chose not to recode his NA values with 0s - I think the absence of dots on the graph makes the point better.  
 
-```{r word count facet by justice, echo = FALSE, warning = FALSE, message = FALSE, results='hide'}
+```{r word count facet by justice, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 10, fig.width = 10}
 
 # words spoken by justices over time 
 plot_words_spoken_over_time <-
@@ -517,7 +517,7 @@ Can we gauge which way a justice is leaning based on how much they talk to the p
 
 Most justices spoke more in cases where they eventually voted against the petitioner. Elena Kagan is the only exception. For Kavanaugh and Alito, the difference is quite pronounced. Alito can really go on a rant when he doesn't buy the petitioner's argument.  
 
-```{r words by vote type, echo = FALSE, warning = FALSE, message = FALSE}
+```{r words by vote type, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 10, fig.width = 10}
 
 # words spoken by vote type
 plot_words_spoken_by_vote_type <-
@@ -560,7 +560,7 @@ questions_p_value <- round(questions_t_test$p.value, 2)
 
 Yes, according to a quick t-test: the estimated average number of questions from a justice who votes **FOR** the petitioner is `r questions_mean_voted_for_petitioner` compared to `r questions_mean_voted_against_petitioner` from a justice who votes **AGAINST**, with a p-value of `r questions_p_value`. But that's if we consider all justices together. Take a look at the individual justices below:  
 
-```{r questions boxplot, echo = FALSE, warning = FALSE, message = FALSE}
+```{r questions boxplot, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 10, fig.width = 10}
 
 # box plot of number of questions asked, conditioned on vote type
 plot_questions_asked_by_vote_type <-
@@ -633,7 +633,7 @@ Ginsburg and Sotomayor both had occasions where they committed high numbers of i
 
 Gorsuch exhibits an obvious pattern of interrupting more often in cases where he disagrees with the petitioner, but for the other justices, the conditional means are too close to be worth t-testing.  
 
-```{r boxplot interruptions conditioned by vote type, echo = FALSE, warning = FALSE, message = FALSE}
+```{r boxplot interruptions conditioned by vote type, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 10, fig.width = 10}
 
 # boxplot of interruptions by vote type
 plot_interruptions_by_vote <-
@@ -733,7 +733,7 @@ Gorsuch has an interesting pair of peaks in his distribution, with a depression 
 
 Do you notice any pattern regarding which justices lean to the left of the neutral line?
 
-```{r sentiment density by justice, echo = FALSE, warning = FALSE, message = FALSE, fig.align = 'center'}
+```{r sentiment density by justice, echo = FALSE, warning = FALSE, message = FALSE, fig.align = 'center', fig.height = 10, fig.width = 10}
 
 # sentiment distribution by justice, density
 plot_sentiment_density_all_justices <-
@@ -779,7 +779,7 @@ Why might this be? It could be a result of the particular cases brought before t
 
 When we break down the distribution by vote type, we see a similar pattern as we did with the other metrics we studied: some justices exhibit obviously different patterns based on their opinion of the petitioner's argument, while others are a bit harder to read.  
 
-```{r sentiment distribution by vote type, echo = FALSE, warning = FALSE, message = FALSE, fig.align = 'center'}
+```{r sentiment distribution by vote type, echo = FALSE, warning = FALSE, message = FALSE, fig.align = 'center', fig.height = 10, fig.width = 10}
 
 # density conditioned on vote type
 plot_sentiment_density_vote_type <-
@@ -874,7 +874,7 @@ Below, we treat each justice's speech across the whole 2019 session as a separat
 
 What words distinguish the justices from one another?  
 
-```{r tf-idf for all justices, echo = FALSE, warning = FALSE, message = FALSE, fig.align = 'center'}
+```{r tf-idf for all justices, echo = FALSE, warning = FALSE, message = FALSE, fig.align = 'center', fig.width = 10, fig.height = 10}
 
 ## -----> tf-idf done the right way
 
@@ -917,7 +917,7 @@ If we just focus on one justice, and treat their speech before voting **for** an
 
 Let's try it on Chief Justice Roberts, who is often seen as the swing vote:  
 
-```{r tf-idf roberts conditioned on vote type, echo = FALSE, warning = FALSE, message = FALSE, fig.align = 'center', fig.width = 12}
+```{r tf-idf roberts conditioned on vote type, echo = FALSE, warning = FALSE, message = FALSE, fig.align = 'center', fig.width = 12, fig.height = 10}
 
 # high value for fig.width to avoid cutting image off in knitr render
 
