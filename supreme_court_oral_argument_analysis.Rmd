@@ -1,0 +1,778 @@
+---
+title: "Oral Arguments before the Supreme Court"
+subtitle: "A look at how justices spoke to petitioners in the 2019 session."
+author: "John Joyce"
+date: "5/16/2021"
+output:
+  html_document:
+    theme: "paper"
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+```
+
+# What is this project about?
+
+The Supreme Court of the United States is one of the most powerful organs of American government. What makes it different from other institutions - and what makes it fascinating - is that the actions of this body depend entirely on the opinions of a handful of individuals who hold their jobs for decades and perform their duties in public. No other government department is so *consistently personal*. Anyone who wants to understand the court needs to understand the tendencies of its members.  
+
+In this project, I study the transcripts of oral arguments before the court and attempt to gain some insight into the justices. To limit the scope of this project, I focus only on the **interactions between the justices and the petitioners**. (The petitioner is the party who requests that the court hear the case.) I also choose to focus only on **cases argued in the 2019 session**, and I exclude two cases where it is difficult to cleanly assign parties to the roles of petitioner and respondent (dockets [18-1323](https://www.supremecourt.gov/oral_arguments/argument_transcripts/2019/18-1323_d18e.pdf) and [18-1334](https://www.supremecourt.gov/oral_arguments/argument_transcripts/2019/18-1334_ba7d.pdf)).   
+
+# How does it work?  
+
+## Data Collection  
+
+The project uses two data sources:  
+* PDF transcripts of oral arguments, from the [Supreme Court's website](https://www.supremecourt.gov/oral_arguments/argument_transcript/2019)  
+* a table of voting records and case details, from the [Supreme Court Database](http://scdb.wustl.edu/data.php) maintained by Washing University St. Louis  
+
+First, data is collected from the PDFs and stored in a table. Then, I join the table of voting records based on justice names and docket numbers.  
+
+At a high level, the PDF mining process works like this:  
+1. Open one case PDF  
+2. Extract the relevant section from the document - *oral argument of the petitioner*  
+3. Extract the text for one justice who speaks in that section  
+4. Analyze the extracted text for the justice (sentiment analysis + count of words, questions, interruptions)  
+5. Create a single row of data for the analysis of the justice in this case  
+6. Repeat every justice in the case  
+7. Repeat for every case PDF from 2019  
+
+![](assets/diagrams/data_collection_process.jpg)  
+
+## Text Analysis  
+
+There are four components of text analysis which happen when building the table:  
+* sentiment analysis
+  + sentence-based sentiment analysis with the  **sentimentr** package  
+  + unigram-based sentiment analysis with the **afinn** lexicon  
+* count the number of **questions** the justice asked the petitioner  
+* count the number of times the justice **interrupted** the petitioner  
+* count the number of **words spoken** during Q&A with the petitioner  
+
+For every case, I compute a **mean sentiment score** for the justices' speech with both methods. I chose these two methods because they both produce numerical scores, which allows us to compare the degree of positivity/negativity in different circumstances. The `sentimentr` method allows for calculating sentiment on a whole sentence, which has the potential to uncover critical differences in meaning due to negation of positive/negative terms (e.g. "That's *not* good news").     
+
+Mean sentiment scores are calculated like this:  
+* **sentimentr**: weighted mean of sentiment score for all sentences, with weights determined by the number of words in each sentence  
+* **afinn**: remove stop words from text, take mean value of remaining words which have a sentiment score in the afinn lexicon  
+
+
+```{r load and process PDFs}
+
+###------------------------> NOTE: this chunk will take some time to run, go grab a coffee
+
+
+#######################################################################
+###################                                 ###################
+###################                                 ###################
+###################              SETUP              ###################
+###################                                 ###################
+###################                                 ###################
+#######################################################################
+
+# Set working directory to the directory which holds this script.
+# setwd('your_working_directory_here')
+
+
+####################
+####################
+##                ##
+##    LIBRARIES   ##
+##                ##
+####################
+####################
+
+
+# libraries
+library(tidyverse)
+library(lubridate)
+library(tm)
+library(pdftools)
+library(tidytext)
+library(textdata)
+library(data.table)
+library(scales)
+library(ggiraph)
+library(ggpubr)
+library(kable)
+library(kableExtra)
+
+
+####################
+####################
+##      SET       ##
+##      FILE      ##
+##      PATHS     ##
+####################
+####################
+
+
+# file path for voting records
+vote_records_csv_path <- 'data/raw/2019_vote_records/SCDB_2020_01_justiceCentered_Docket.csv'
+
+# get file paths and names of all oral argument files in the data folder
+pdf_filenames <- list.files(path = 'data/raw/2019_cases/', full.names = TRUE)
+
+
+
+#######################################################################
+###################                                 ###################
+###################         READ AND SUMMARIZE      ###################
+###################           ORAL ARGUMENT         ###################
+###################            TRANSCRIPTS          ###################
+###################                                 ###################
+#######################################################################
+
+
+
+####################
+####################
+##    FUNCTION    ##
+##   TO PROCESS   ##
+##  A SINGLE CASE ##
+####################
+####################
+
+
+
+## -----> define constants outside the function
+
+
+# all justices on the bench in the 2019 term
+justices <- c("CHIEF JUSTICE ROBERTS",
+              "JUSTICE THOMAS",
+              "JUSTICE BREYER",
+              "JUSTICE ALITO",
+              "JUSTICE SOTOMAYOR",
+              "JUSTICE KAGAN",
+              "JUSTICE GORSUCH",
+              "JUSTICE KAVANAUGH",
+              "JUSTICE GINSBURG")
+
+# custom stop words to withhold from some parts of the analysis
+custom_stop_words <- data.frame(word = c('chief', 
+                                         'justice',
+                                         'roberts',
+                                         'thomas',
+                                         'breyer',
+                                         'alito',
+                                         'sotomayor',
+                                         'kagan',
+                                         'gorsuch',
+                                         'kavanaugh',
+                                         'ginsburg',
+                                         'counsel',
+                                         'argument',
+                                         'ms'))
+
+# expressions to filter out when counting questions - justices politely referring to each other ("Justice Kagan?" = it's your turn to speak, Justice Kagan)
+justices_referring_to_each_other <- str_to_title(paste(justices, '\\?', sep = '', collapse = "|"))
+
+
+## -----> define function for processing each PDF, and each justice in the text
+
+
+# function takes one PDF file path and returns a dataframe with stats for the justices in that case
+process_single_case <- function(filename){
+  
+  
+  ## -----> load and parse document
+  
+  
+  # extract the docket number from the filename
+  docket <- str_extract(filename, "\\d+-\\d+")
+  
+  # reads each page into an element of the vector
+  pdf_all_text <- pdf_text(filename)
+  
+  # grab date from text before cleaning
+  date <- str_extract(pdf_all_text, 'Date:\\s+\\w+\\s\\d+,\\s\\d\\d\\d\\d')
+  date <- date[!is.na(date)]
+  date <- lubridate::parse_date_time(date, "b d Y")
+  
+  # steps to remove unwanted artifacts (line breaks and numbers) + boilerplate content on each page
+  pdf_all_text <-
+    pdf_all_text %>% 
+    str_replace_all("Official\n\n\n", "") %>%  # cut boilerplate header/footer
+    str_replace_all("\\n\\d+", '') %>% # cut line numbers (linebreaks before them)
+    str_replace_all("\\d+\\n", "") %>%  # cut line numbers (linebreaks after them)
+    str_replace_all("\\n", "") %>% # cut any linebreaks remaining
+    str_replace_all("Official - Subject to Final Review", "") %>% # cut boilerplate header/footer
+    str_replace_all("Heritage Reporting Corporation", "") %>% #cut boilerplate header/footer
+    str_flatten(collapse = "") %>% # combine vector elements into one big text
+    str_squish() # remove excess whitespace in the text
+  
+  # extract the part of the transcript which is the oral arguments of the petitioner(s)
+  # lookbehind = start of argument for petitioners, lookahead = start of argument for respondent, capture all text in between
+  # CAPITALIZATION MATTERS! these phrases mark the correct parts of the document only when capitalized
+  oral_argument_of_petitioner <-
+    str_extract(pdf_all_text, "(?<=ON BEHALF OF THE PETITIONER).*(?=ON BEHALF OF .* RESPONDENT)")
+  
+  
+  ## -----> function to get stats for each justice who speaks in this document
+  
+  
+  # this function takes a justice's name as an input, and returns a list containing summary stats for that justice
+  single_judge_data <- function(selected_judge){
+    
+    # print current docket and justice to console so users can see the process running
+    # print(paste0('Docket: ', docket, ' Judge: ', selected_judge)) ### NOT RUN FOR RMARKDOWN REPORT
+    
+    # pipeline for each judge wrapped in tryCatch to handle absent judges (example: abstention)
+    tryCatch({  
+      
+      
+      ## -----> define regex patterns for this justice
+      
+      
+      # a pattern that indicates this justice is now speaking
+      # example: "CHIEF JUSTICE ROBERTS: " "his words here" "CAPITAL LETTERS MARKING THE NEXT SPEAKER" appears whenever Roberts speaks
+      # negative lookahead marks the end by identify a series of capital letters (the next speaker or document section is written in all caps)
+      justice_is_speaking_pattern <- paste0(selected_judge,": .+?(?=\\s[A-Z][A-Z]+\\.?\\s)")
+      
+      # a pattern in the text which indicates that the justice has interrupted another speaker
+      justice_is_interrupting_pattern <- paste0("-- ", selected_judge)
+      
+      
+      ## -----> extract this justice's speech from the document
+      
+      
+      # get all the text where the selected justice is speaking
+      justice_speech <- str_extract_all(oral_argument_of_petitioner, justice_is_speaking_pattern, simplify = TRUE)
+      
+      # transform the text so - now each row represents one uninterrupted segment of spoken words from the justice
+      justice_speech <-
+        justice_speech %>% 
+        as.data.frame() %>% 
+        pivot_longer(everything()) %>% 
+        select('value') %>% 
+        rename('spoken_words' = 'value')
+      
+      
+      ## -----> sentenced-based sentiment analysis with sentimentr
+      
+      
+      # get sentences and compute sentiment score with sentimentr
+      justice_sentences_with_sentimentr_scores <-
+        justice_speech %>% 
+        sentimentr::get_sentences() %>% 
+        sentimentr::sentiment() %>% 
+        mutate(spoken_words = str_remove_all(spoken_words, paste0(selected_judge, ": "))) # clean justice's name from text
+      
+      # store most positive sentence in a vector
+      justice_most_positive_sentence <-
+        justice_sentences_with_sentimentr_scores %>% 
+        arrange(sentiment) %>% 
+        slice_tail() %>% 
+        pull(spoken_words)
+      
+      # store most negative sentence in a vector
+      justice_most_negative_sentence <-
+        justice_sentences_with_sentimentr_scores %>% 
+        arrange(sentiment) %>% 
+        slice_head() %>% 
+        pull(spoken_words)
+      
+      # calculate mean sentiment of all sentences, weighted by word count of each sentence
+      justice_mean_sentiment_sentimentr <- weighted.mean(justice_sentences_with_sentimentr_scores$sentiment, 
+                                                         w = justice_sentences_with_sentimentr_scores$word_count)
+      
+      
+      ## -----> token-based sentiment analysis with afinn lexicon
+      
+      
+      # get all the words and count them
+      justice_speech_tokens <-
+        justice_speech %>% 
+        unnest_tokens(word, spoken_words) %>% 
+        anti_join(stop_words) %>% 
+        anti_join(custom_stop_words) %>% 
+        group_by(word) %>% 
+        summarize(count = n()) %>% 
+        arrange(desc(count))
+      
+      # get sentiments from 'afinn' because we want a numeric score so we can compare sentiments between justices, cases
+      justice_sentiments_afinn <- 
+        justice_speech_tokens %>% 
+        inner_join(get_sentiments('afinn')) %>% 
+        mutate(count_times_value = count * value)
+      
+      # get mean sentiment score of the justice's word
+      justice_mean_sentiment_afinn <- 
+        justice_sentiments_afinn %>% 
+        summarize(mean = mean(count_times_value)) %>% 
+        pull(mean)
+      
+      
+      ## -----> other analysis on the justice's speech
+      
+      
+      # count the number of time this justice interrupted another speaker
+      justice_interruptions <- 
+        str_extract_all(oral_argument_of_petitioner, justice_is_interrupting_pattern) %>% 
+        unlist() %>% 
+        length()
+      
+      # count the number of questions asked by this justice
+      justice_questions <-
+        justice_speech %>% 
+        pull(spoken_words) %>% 
+        str_flatten(collapse = "") %>% 
+        str_remove_all(justices_referring_to_each_other) %>% # remove polite conversation between justices
+        str_extract_all(pattern = "\\?") %>% 
+        unlist() %>% 
+        length()
+      
+      # count total words spoken (in this case, we'll also count stop words to get an accurate picture of how much they talked)
+      justice_count_words_spoken <- 
+        justice_speech %>% 
+        unnest_tokens(word, spoken_words) %>% 
+        pull(word) %>% 
+        length()
+      
+      # top word spoken by the justice in this case
+      justice_top_word <- 
+        justice_speech_tokens %>% 
+        head(1) %>% 
+        pull(word)
+      
+      # store all the unigrams in a string so that we can put it in one cell in the dataframe
+      justice_all_unigrams_as_a_string <-
+        justice_speech %>% 
+        unnest_tokens(word, spoken_words) %>% 
+        anti_join(stop_words) %>% 
+        anti_join(custom_stop_words) %>% 
+        pull(word) %>% 
+        str_flatten(collapse = " ")
+      
+      
+      ## -----> store data in list
+      
+      
+      # create a list of the information gathered
+      summary_row <- list(docket_number = docket,
+                          date_argued = date,
+                          justice = selected_judge,
+                          sentiment_score_afinn = justice_mean_sentiment_afinn,
+                          sentiment_score_sentimentr = justice_mean_sentiment_sentimentr,
+                          questions = justice_questions,
+                          interruptions = justice_interruptions,
+                          words_spoken = justice_count_words_spoken,
+                          top_word = justice_top_word,
+                          unigrams = justice_all_unigrams_as_a_string,
+                          most_positive_sentence = justice_most_positive_sentence,
+                          most_negative_sentence = justice_most_negative_sentence
+                          )
+      
+    }, 
+    
+    # error condition for tryCatch - does nothing except allow the process to continue
+    error = function(e){})
+    
+    # tryCatch on returning collected data - return a special NA list if there was an error
+    tryCatch(return(summary_row), error = function(e){
+      summary_row <- list(docket_number = docket,
+                          date_argued = date,
+                          justice = selected_judge,
+                          sentiment_score_afinn = NA,
+                          sentiment_score_sentimentr = NA,
+                          questions = NA,
+                          interruptions = NA,
+                          words_spoken = NA,
+                          top_word = NA,
+                          unigrams = NA,
+                          most_positive_sentence = NA,
+                          most_negative_sentence = NA)
+      
+      return(summary_row)
+      
+    })
+  }
+  
+  # get list of stats for each justice in the case, and bind lists to a dataframe
+  single_case <- rbindlist(lapply(justices, single_judge_data))
+  
+  return(single_case)
+}
+
+
+####################
+####################
+##     PROCESS    ##
+##       ALL      ##
+##      CASES     ##
+####################
+####################
+
+
+# for every file in pdf_filenames, call the process_single_case() function which returns a dataframe, then use rbindlist to bind rows for all dataframes
+all_cases <- rbindlist(lapply(pdf_filenames, process_single_case))
+
+
+####################
+####################
+##   READ & JOIN  ##
+##  JUSTICE VOTE  ##
+##     RECORDS    ##
+####################
+####################
+
+
+# data.table's fread() handles the docket column correctly by default - read_csv() may have errors
+vote_records <- fread(vote_records_csv_path)
+
+# columns to keep for the vote records table
+vote_records_columns_to_keep <- c('docket', 'justiceName', 'caseName', 'petitioner_wins', 'justice_in_majority', 'voted_for_petitioner')
+
+# get TRUE/FALSE values for whether the petitioner won and whether the justice voted with the  majority or not
+# then use boolean logic to determine if the justice voted in the petitioners favor or not
+vote_records <-
+  vote_records %>% 
+  mutate(petitioner_wins = ifelse(partyWinning == 1, TRUE, FALSE)) %>% # if the petitioner "won" (val = 1) then TRUE, else (val = 0 (lose) or 2 (unclear)) FALSE
+  mutate(justice_in_majority = ifelse(majority == 2, TRUE, FALSE)) %>% # if majority == 2, the justice voted with the majority, otherwise we consider it a dissent
+  mutate(voted_for_petitioner = petitioner_wins & justice_in_majority) %>% # combinations of TRUE & FALSE tell us whether the judge voted for the petitioner or not
+  select(all_of(vote_records_columns_to_keep))
+
+# rename justices to match format from the other table
+# since there are only 9 justices, it's easier just to do this manually
+vote_records <-
+  vote_records %>% 
+  mutate(justiceName = ifelse(justiceName == "JGRoberts", "CHIEF JUSTICE ROBERTS", justiceName)) %>% 
+  mutate(justiceName = ifelse(justiceName == "CThomas", "JUSTICE THOMAS", justiceName)) %>%
+  mutate(justiceName = ifelse(justiceName == "SGBreyer", "JUSTICE BREYER", justiceName)) %>%
+  mutate(justiceName = ifelse(justiceName == "SAAlito", "JUSTICE ALITO", justiceName)) %>%
+  mutate(justiceName = ifelse(justiceName == "SSotomayor", "JUSTICE SOTOMAYOR", justiceName)) %>%
+  mutate(justiceName = ifelse(justiceName == "EKagan", "JUSTICE KAGAN", justiceName)) %>%
+  mutate(justiceName = ifelse(justiceName == "NMGorsuch", "JUSTICE GORSUCH", justiceName)) %>%
+  mutate(justiceName = ifelse(justiceName == "BMKavanaugh", "JUSTICE KAVANAUGH", justiceName)) %>%
+  mutate(justiceName = ifelse(justiceName == "RBGinsburg", "JUSTICE GINSBURG", justiceName))
+
+# join vote records to the analysis table
+all_cases_with_votes <-
+  left_join(all_cases, vote_records, by = c("justice" = "justiceName", "docket_number" = "docket"))
+
+# interesting NAs in docket 18-217: there were no votes, because the petition was dismissed with consent of both parties
+# leave most NAs alone, but fill in the caseName variable so we can use it plot tooltips
+all_cases_with_votes$caseName[all_cases_with_votes$docket_number == "18-217"] <- "MATHENA v. MALVO"
+
+
+####################
+####################
+##      WRITE     ##
+##   CLEAN TABLE  ##
+##     TO CSV     ##
+####################
+####################
+
+
+fwrite(all_cases_with_votes, file = 'data/clean/all_cases_with_votes.csv')
+
+```  
+
+# Findings
+
+## Word Count  
+
+### Word Count over Time
+
+The chart below shows the number of words spoken by each justice (during the petitioners' arguments) in cases through the 2019 session. There aren't many interesting patterns here, except for Chief Justice Roberts suddenly getting a bit more talkative at the end of the session. Other than that, nothing to see --
+
+### Wait a minute, what's up with Justice Thomas?  
+
+Before we go any further into the analysis, I have to address one thing: this is not a mistake. There was no issue parsing the PDFs, there's nothing wrong with the data. Justice Clarence Thomas simply doesn't speak very often. In fact, [he once went 10 years without asking a question](https://www.nytimes.com/2016/03/01/us/politics/supreme-court-clarence-thomas.html). He broke that streak in 2016, but he still doesn't chime in very often - [except during the pandemic](https://www.reuters.com/world/us/amid-pandemic-us-justice-clarence-thomas-has-question-or-two-2021-05-12/).   
+
+Of the 56 arguments analyzed, Thomas spoke during 10 of them. I chose not to recode his NA values with 0s - I think the absence of dots on the graph makes the point better.  
+
+```{r word count facet by justice, results='hide'}
+
+# words spoken by justices over time 
+plot_words_spoken_over_time <-
+all_cases_with_votes %>% 
+  ggplot(aes(x = date_argued, y = words_spoken, color = justice)) +
+  geom_smooth() + 
+  geom_point_interactive(alpha = 0.5, aes(tooltip = paste0("Case: ", caseName,
+                                                           "\n",
+                                                           "Words spoken: ", words_spoken))) +
+  labs(x = 'Date of Oral Argument', y = 'Spoken Word Count') +
+  theme(legend.position = "none") +
+  facet_wrap(~ justice)
+
+# show plot
+ggiraph(ggobj = plot_words_spoken_over_time)
+
+
+```    
+
+### Word Count by Vote Type  
+
+Can we gauge which way a justice is leaning based on how much they talk to the petitioner? It depends on the justice.  
+
+Most justices spoke more in cases where they eventually voted against the petitioner. Elena Kagan is the only exception. For Kavanaugh and Alito, the difference is quite pronounced. Alito can really go on a rant when he doesn't buy the petitioner's argument.  
+
+```{r words by vote type}
+
+# words spoken by vote type
+plot_words_spoken_by_vote_type <-
+all_cases_with_votes %>% 
+  drop_na(voted_for_petitioner) %>% 
+  group_by(justice, voted_for_petitioner) %>% 
+  summarize(mean_words_spoken = mean(words_spoken, na.rm = TRUE)) %>%
+  rename(`Vote Type` = voted_for_petitioner) %>% 
+  mutate(`Vote Type` = ifelse(`Vote Type` == TRUE, "For the Petitioner", "Against the Petitioner")) %>% 
+  ggplot(aes(x = reorder(justice, -mean_words_spoken), y = mean_words_spoken)) +
+  geom_line_interactive(size = 1.5, color = "grey30") +
+  geom_point_interactive(aes(shape = `Vote Type`, fill = `Vote Type`, 
+                             tooltip = paste0(round(mean_words_spoken, 0), " words on average")), 
+                         size = 6) + 
+  scale_shape_manual(values = c(25, 24)) +
+  scale_fill_manual(values = c("orangered1", "dodgerblue4")) +
+  labs(x = "", y = "Spoken Word Count") +
+  coord_flip() +
+  theme(legend.position = 'top')
+
+
+# show plot
+ggiraph(ggobj = plot_words_spoken_by_vote_type)
+
+```  
+
+## Questions  
+
+Do they justices ask more questions in cases where they eventually vote against the petitioner?  
+```{r mean questions t-test all justices}
+# p value of 0.01... yeah, they ask more questions when they vote against
+questions_t_test <- t.test(questions ~ voted_for_petitioner, data = all_cases_with_votes)
+
+# variables for markdown text
+questions_mean_voted_for_petitioner <- round(questions_t_test$estimate[["mean in group TRUE"]], 2)
+questions_mean_voted_against_petitioner <- round(questions_t_test$estimate[["mean in group FALSE"]], 2)
+questions_p_value <- round(questions_t_test$p.value, 2)
+
+```
+
+Yes, according to a quick t-test: the estimated average number of questions from a justice who votes FOR the petitioner is `r questions_mean_voted_for_petitioner` compared to `r questions_mean_voted_against_petitioner` from a justice who votes AGAINST, with a p-value of `r questions_p_value`. But that's if we consider all justices together. Take a look at the individual justices below:  
+
+```{r questions boxplot}
+
+# box plot of number of questions asked, conditioned on vote type
+plot_questions_asked_by_vote_type <-
+all_cases_with_votes %>% 
+  drop_na(voted_for_petitioner) %>% 
+  mutate(voted_for_petitioner = factor(voted_for_petitioner, levels = c("TRUE", "FALSE"))) %>% 
+  ggplot(aes(x = voted_for_petitioner, y = questions, fill = justice)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.5) +
+  geom_jitter_interactive(aes(color = justice,
+                              tooltip = paste0("Case: ", caseName,
+                                               "\n",
+                                               "Questions: ", questions)), 
+                          width = 0.2, alpha = 0.35) +
+  theme(legend.position = "none") +
+  labs(x = "Voted For Petitioner", y = "Number of Questions Asked") +
+  facet_wrap(~ justice)
+
+# show plot
+ggiraph(ggobj = plot_questions_asked_by_vote_type)
+
+
+```  
+
+The difference is quite meaningful for Alito and Gorsuch, but more subtle for the other justices. Breyer and Sotomayor aren't tipping their hands based on how many questions they ask.  
+
+If you take a look at the table below, you'll see that the average number of questions asked is significantly different only for Alito, Gorsuch, and Kavanaugh. This table was generated by running a t-test on each justice individually.  
+
+```{r mean questions t-test for individual justices}
+
+# function takes a justice as an argument, and performs a t-test on the data filtered to that justice
+# t-test: is the mean number of questions different depending on whether the justice voted for or against the petitioner
+mean_questions_t_test <- function(one_judge){
+  
+  # filter data to the the judge we want to examine
+  filtered_data <- all_cases_with_votes[justice == one_judge]
+  
+  # students t-test: any difference in means when voted_for_petitioner is TRUE vs FALSE?
+  questions_t_test_result <- t.test(questions ~ voted_for_petitioner, data = filtered_data)
+  
+  # label test results as significant/insignificant based on p-value cutoff of 0.05
+  significance <- ifelse(questions_t_test_result$p.value < 0.05, "Significant", "Not Significant")
+  
+  # store results in list
+  one_judge_t_questions_t_test_result <- list(Justice = one_judge,
+                                              `Voted for Petitioner` = round(questions_t_test_result$estimate[['mean in group TRUE']], 2),
+                                              `Voted against Petitioner` = round(questions_t_test_result$estimate[['mean in group FALSE']], 2),
+                                              `Statistical Significance` = significance,
+                                              `P-Value` = round(questions_t_test_result$p.value, 3))
+  
+}
+
+# do t-test for all justices
+questions_table <- rbindlist(lapply(justices, mean_questions_t_test))
+
+# arrange by p value to show relevant justices first
+questions_table %>%
+  arrange(`P-Value`) %>%
+  kable() %>%
+  kable_material("hover")
+
+
+
+```  
+
+## Interruptions  
+
+Conventional knowledge might say "people who agree with you don't cut you off when you are speaking". Based on the plots below, this might not be entirely true of Supreme Court Justices. They are just opinionated folks who want to get their word in.  
+
+Ginsburg and Sotomayor both had occasions where they committed high numbers of interruptions in cases where they sided *with* the petitioner.  
+
+Gorsuch exhibits an obvious pattern of interrupting more often in cases where he disagrees with the petitioner, but for the other justices, the conditional means are too close to be worth t-testing.  
+
+```{r boxplot interruptions conditioned by vote type}
+
+# boxplot of interruptions by vote type
+plot_interruptions_by_vote <-
+all_cases_with_votes %>% 
+  drop_na(voted_for_petitioner) %>% 
+  mutate(voted_for_petitioner = factor(voted_for_petitioner, levels = c("TRUE", "FALSE"))) %>% 
+  ggplot(aes(x = voted_for_petitioner, y = interruptions, fill = justice)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.5) +
+  geom_jitter_interactive(aes(color = justice, 
+                              tooltip = paste0("Case: ", caseName,
+                                               "\n",
+                                               "Interruptions by justice: ", interruptions)),
+                          width = 0.2, alpha = 0.35) +
+  theme(legend.position = "none") +
+  labs(x = "Voted For Petitioner", y = "Number of Interruptions") +
+  facet_wrap(~ justice)
+
+# show interactive plot
+ggiraph(ggobj = plot_interruptions_by_vote)
+
+```
+## Sentiment
+
+### Different Methods, Different Scores
+
+I calculated sentiment scores on complete sentences with the **sentimentr** package, and on unigrams (single words) with the **afinn** lexicon. I found that these two approaches resulted in significantly different interpretations of the justices' speech.  
+
+The two methods have different numerical scales, but they share a common principal: zero is neutral, positive numbers are "positive" emotions, negative numbers are "negative" emotions. Now, take a look at the score distributions in our data:  
+
+```{r afinn vs sentimentr comparison}
+
+#SHOW PLOTS SIDE BY SIDE TO ILLUSTRATE DIFFERENT MEANS (positive leaning VS negative leaning)
+
+# afinn distribution density
+plot_sentiment_density_afinn <-
+all_cases_with_votes %>% 
+  ggplot(aes(x = sentiment_score_afinn)) +
+  geom_density(fill = "lightsteelblue3") +
+  geom_vline(xintercept = 0, linetype = "dotted") +
+  scale_x_continuous(limits = c(-10,10)) +
+  labs(title = "afinn", x = "Score", y = "Density")
+
+# sentimentr distribution density
+plot_sentiment_density_sentimentr <-
+all_cases_with_votes %>% 
+  ggplot(aes(x = sentiment_score_sentimentr)) +
+  geom_density(fill = "tomato2") +
+  geom_vline(xintercept = 0, linetype = "dotted") +
+  scale_x_continuous(limits = c(-1,1)) +
+  labs(title = "sentimentr", x = "Score", y = "Density")
+
+# show plots side-by-side
+ggarrange(plot_sentiment_density_afinn, 
+          plot_sentiment_density_sentimentr,
+          ncol = 2,
+          nrow = 1)
+
+
+```  
+
+The afinn scores lean *very slightly* negative, while the sentimentr scores are notably positive on average.  
+
+These two methods are different enough, that they're not even really correlated. I standardized their scores (by calculating z-scores) and plotted them against each other:  
+
+```{r afinn vs sentimentr z-score scatter}
+
+# scatter of z-scores for afinn and sentimentr
+# the scores are weakly correlated within 2 standard deviations of their respective means
+# and very different at the extremes
+plot_sentiment_z_scores <- 
+all_cases_with_votes %>%
+  drop_na(sentiment_score_afinn, sentiment_score_sentimentr) %>% 
+  mutate(afinn_scaled = (sentiment_score_afinn - mean(sentiment_score_afinn)) / sd(sentiment_score_afinn),
+         sentimentr_scaled = (sentiment_score_sentimentr - mean(sentiment_score_sentimentr)) / sd(sentiment_score_sentimentr)) %>% 
+  ggplot(aes(x = afinn_scaled, y = sentimentr_scaled)) +
+  geom_point_interactive(aes(tooltip = paste0("sentimentr z-score: ", round(sentimentr_scaled, 2),
+                                              "\n",
+                                              "afinn z-score: ", round(afinn_scaled, 2)))) +
+  geom_smooth(color = "red") +
+  labs(title = "Scaled afinn & sentimentr scores", x = "afinn z-score", y = "sentimentr z-score")
+
+# show plot
+ggiraph(ggobj = plot_sentiment_z_scores)
+
+
+```  
+
+Among the cases which have sentiment scores closer to the mean, there appears to be some mild positive correlation between the two scoring systems. But as you move towards the extreme cases - starting at even one standard deviation away from the mean on either axis - the relationship totally falls apart. The upper-left and lower-right quadrants provide us a few examples of texts where they couldn't even agree on the polarity, much less the intensity, of the sentiment. (Perhaps this is due to sentimentr recognizing negation, which isn't possible when analyzing unigrams...)  
+
+I decided to proceed with the sentiment analysis using the **afinn** lexicon on unigrams. The **sentimentr** package is a great solution for other applications, but it seems to have an unusually positive bias *on this particular data*.  
+
+### Sentiment Distribution by Justice  
+
+
+
+```{r sentiment density by justice}
+
+# sentiment distribution by justice, density
+plot_sentiment_density_all_justices <-
+all_cases_with_votes %>% 
+  ggplot(aes(x = sentiment_score_afinn, fill = justice)) + 
+  geom_density() +
+  geom_vline(xintercept = 0, linetype = "dotted") +
+  scale_x_continuous(limits = c(-10,10)) +
+  facet_wrap(~ justice) +
+  labs(x = "Mean Sentiment Score (afinn)", y = "Density") +
+  theme(legend.position =  "none")
+
+# show plot
+plot_sentiment_density_all_justices
+
+```
+
+
+
+
+``` {r test plot}
+plot_top_unigrams_by_vote_type_ginsburg_gorsuch <- 
+all_cases_with_votes %>% 
+  filter(justice %in% c("JUSTICE GINSBURG", "JUSTICE GORSUCH")) %>% 
+  drop_na(voted_for_petitioner, unigrams) %>% 
+  group_by(justice, voted_for_petitioner) %>% 
+  unnest_tokens(word, unigrams) %>% 
+  anti_join(ggplot_stop_word_list) %>% 
+  count(word) %>% 
+  arrange(justice, voted_for_petitioner, -n) %>% 
+  rename(count = n) %>% 
+  slice_max(n = 5, order_by = count) %>% ### NUMBER of words per group here
+  mutate(directional_count = ifelse(voted_for_petitioner == TRUE, count, count * -1)) %>%
+  ggplot(aes(x = reorder(word, directional_count), y = directional_count)) +
+  geom_col_interactive(aes(fill = voted_for_petitioner, tooltip = paste0(count, " times in this context"))) +
+  geom_label(aes(label = word)) +
+  labs(title = "Top Words by Vote Type", x = "", y = "Number of Times Word Spoken") +
+  scale_x_discrete(labels = NULL, breaks = NULL) +
+  scale_y_continuous(breaks = c(-20, -10, 0, 10, 20), limits = c(-20, 20), labels = c("20", "10", "0", "10", "20")) +
+  theme(legend.position = "top") +
+  scale_fill_manual(name = "", labels = c("Voted Against the Petitioner", "Voted For the Petitioner"), values = c("orangered1", "dodgerblue4")) +
+  coord_flip() +
+  facet_wrap(~ justice, scales = "free")
+
+# show plot
+ggiraph(ggobj = plot_top_unigrams_by_vote_type_ginsburg_gorsuch)
+```
+
+```{}
+, message = FALSE, warning = FALSE
+```
