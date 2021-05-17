@@ -1,3 +1,7 @@
-# Supreme Court Oral Argument Analysis  
+# What is this project about?
 
-This project uses tidytext methods to analyze oral arguments before the Supreme Court of the United States in the 2019 session. The analysis focuses the justices' interactions with the petitioner.
+The Supreme Court of the United States is one of the most powerful organs of American government. What makes it different from other institutions - and what makes it fascinating - is that the actions of this body depend entirely on the opinions of a handful of individuals who hold their jobs for decades and perform their duties in public. No other government department is so *consistently personal*. Anyone who wants to understand the court needs to understand the tendencies of its members.  
+
+In this project, I study the transcripts of oral arguments before the court and attempt to gain some insight into the justices. To limit the scope of this project, I focus only on the **interactions between the justices and the petitioners**. (The petitioner is the party who requests that the court hear the case.) I also choose to focus only on **cases argued in the 2019 session**, and I exclude two cases where it is difficult to cleanly assign parties to the roles of petitioner and respondent (dockets [18-1323](https://www.supremecourt.gov/oral_arguments/argument_transcripts/2019/18-1323_d18e.pdf) and [18-1334](https://www.supremecourt.gov/oral_arguments/argument_transcripts/2019/18-1334_ba7d.pdf)).
+
+![alito](data/assets/justice_photos/alito.jpg)![breyer](data/assets/justice_photos/breyer.jpg)![ginsburg](data/assets/justice_photos/ginsburg.jpg)![gorsuch](data/assets/justice_photos/gorsuch.jpg)![kagan](data/assets/justice_photos/kagan.jpg)![kavanaugh](data/assets/justice_photos/kavanaugh.jpg)![roberts](data/assets/justice_photos/roberts.jpg)![sotomayor](data/assets/justice_photos/sotomayor.jpg)![thomas](data/assets/justice_photos/thomas.jpg)
