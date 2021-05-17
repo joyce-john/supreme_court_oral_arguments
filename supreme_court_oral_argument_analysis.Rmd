@@ -5,7 +5,7 @@ author: "John Joyce"
 date: "5/16/2021"
 output:
   html_document:
-    theme: "paper"
+    theme: "readable"
     toc: true
     toc_float: true
 ---
@@ -27,6 +27,7 @@ In this project, I study the transcripts of oral arguments before the court and 
 ## Data Collection  
 
 The project uses two data sources:  
+
 * PDF transcripts of oral arguments, from the [Supreme Court's website](https://www.supremecourt.gov/oral_arguments/argument_transcript/2019)  
 * a table of voting records and case details, from the [Supreme Court Database](http://scdb.wustl.edu/data.php) maintained by Washing University St. Louis  
 
@@ -41,11 +42,12 @@ At a high level, the PDF mining process works like this:
 6. Repeat every justice in the case  
 7. Repeat for every case PDF from 2019  
 
-![data process diagram](assets/diagrams/data_collection_process.jpg)  
+![*Process Diagram*](assets/diagrams/data_collection_process.jpg)  
 
 ## Text Analysis  
 
 There are four components of text analysis which happen when building the table:  
+
 * sentiment analysis
   + sentence-based sentiment analysis with the  **sentimentr** package  
   + unigram-based sentiment analysis with the **afinn** lexicon  
@@ -56,6 +58,7 @@ There are four components of text analysis which happen when building the table:
 For every case, I compute a **mean sentiment score** for the justices' speech with both methods. I chose these two methods because they both produce numerical scores, which allows us to compare the degree of positivity/negativity in different circumstances. The `sentimentr` method allows for calculating sentiment on a whole sentence, which has the potential to uncover critical differences in meaning due to negation of positive/negative terms (e.g. "That's *not* good news").     
 
 Mean sentiment scores are calculated like this:  
+
 * **sentimentr**: weighted mean of sentiment score for all sentences, with weights determined by the number of words in each sentence  
 * **afinn**: remove stop words from text, take mean value of remaining words which have a sentiment score in the afinn lexicon  
 
@@ -99,7 +102,6 @@ library(data.table)
 library(scales)
 library(ggiraph)
 library(ggpubr)
-library(kable)
 library(kableExtra)
 
 
@@ -555,7 +557,7 @@ questions_p_value <- round(questions_t_test$p.value, 2)
 
 ```
 
-Yes, according to a quick t-test: the estimated average number of questions from a justice who votes FOR the petitioner is `r questions_mean_voted_for_petitioner` compared to `r questions_mean_voted_against_petitioner` from a justice who votes AGAINST, with a p-value of `r questions_p_value`. But that's if we consider all justices together. Take a look at the individual justices below:  
+Yes, according to a quick t-test: the estimated average number of questions from a justice who votes **FOR** the petitioner is `r questions_mean_voted_for_petitioner` compared to `r questions_mean_voted_against_petitioner` from a justice who votes **AGAINST**, with a p-value of `r questions_p_value`. But that's if we consider all justices together. Take a look at the individual justices below:  
 
 ```{r questions boxplot, echo = FALSE, warning = FALSE, message = FALSE}
 
@@ -769,6 +771,7 @@ sentiment_table %>%
 
 ```  
 Interesting. Breyer, Ginsburg, Kagan, and Sotomayor represent the liberal wing of the court. They sit at the top of this table for being the most negative, on average. The conservative justices, on the other, are lumped together at the bottom of this table. (If the pattern were perfect, Alito and Roberts would switch places, though.)  
+  
 Why might this be? It could be a result of the particular cases brought before the court this year. Donald Trump and Attorney General William Barr were party to [a](https://en.wikipedia.org/wiki/Trump_v._Mazars_USA,_LLP) [handful](https://en.wikipedia.org/wiki/Trump_v._Vance) [of](https://en.wikipedia.org/wiki/Barr_v._American_Assn._of_Political_Consultants,_Inc.) [cases](https://en.wikipedia.org/wiki/Barton_v._Barr) in this session. Or it could be that these four justices [have banded together and gotten defensive](https://www.npr.org/2020/07/15/891185410/in-supreme-court-term-liberals-stuck-together-while-conservatives-appeared-fract) in a court where conservatives outnumber them.  
 
 ### Sentiment Distribution by Justice, Conditioned by Vote Type
@@ -898,12 +901,11 @@ plot_tf_idf_all_justices
 Here, we only gain less insight about the justices' beliefs, and we learn more about their mannerisms. Justice Robert's speech is distinguished by the word "briefly"; probably because he directing the trial ("Briefly, counsel."). Justice Sotomayor says "concealing" a lot more than other justices; perhaps she thinks that the lawyers are hiding the true nature of their arguments. Justice Breyer is unique in saying... "dah"?  
 
 Not a text-parsing error. Here are some snippets of Breyer using the term "dah-dah-dah":  
-
-
-![dah_2](assets/breyer_dah/dah2.jpg)  
-![dah_3](assets/breyer_dah/dah3.jpg)  
-![dah_4](assets/breyer_dah/dah4.jpg)  
-
+  
+  
+![*Examples of Breyer saying "dah"*](assets/breyer_dah/dah_consolidated.jpg)  
+  
+  
 We can see why this word scored such a high TF-IDF: it is *highly* unique to Justice Breyer. If you gave me an unlabeled transcript of Supreme Court arguments and asked me to find a paragraph where Breyer was speaking, the first thing I would do is search for the term "dah".  
 
 ### TF-IDF for a Single Justice, Conditioned on Vote Type
@@ -961,38 +963,47 @@ This project is about studying the speaking habits of the justices during oral a
 Here is a short, non-exhaustive, non-scientific recap of things we learned about the justices:  
 
 **CHIEF JUSTICE ROBERTS**  
+
 * sentiment behind his words might not match his real beliefs  
 * often instructs lawyers to argue their points "briefly"  
 * says "claim" and "theory" when he disagrees with your argument, "yeah" when he buys it  
 
 **JUSTICE THOMAS**  
+
 * doesn't talk much  
 
 **JUSTICE BREYER**  
+
 * talks a lot  
 * says "dah-dah-dah" in the middle of his hypothetical examples  
 
 **JUSTICE ALITO**  
+
 * talks a lot more when he disagrees with you  
 * ask more questions when he disagrees with you  
 
 **JUSTICE SOTOMAYOR**  
+
 * might interrupt you a lot; doesn't mean she is against your argument  
 * sentiment behind her words match her beliefs pretty well, especially if the sentiment is extreme  
 
 **JUSTICE KAGAN**  
+
 * she's the only justice who talks *more* when she agrees with you  
 * sentiment is negative on average, but especially when she disagrees with you  
 
 **JUSTICE GORSUCH**  
+
 * asks more questions when he disagrees with you  
 * interrupts more when he disagrees with you  
 * says "yeah" when he agrees with you, talks about the government and courts when he doesn't  
 
 **JUSTICE KAVANAUGH**  
+
 * quiet when he agrees with you, moderately prolix when he doesn't  
 * asks more questions when he disagrees with you  
 
 **JUSTICE GINSBURG**  
+
 * commonly negative in sentiment, but especially when she disagrees with you  
 * talks about equality when she agrees with you, talks about government and courts when she doesn't  
