@@ -10,5 +10,3 @@ The project uses two data sources:
 
 * PDF transcripts of oral arguments, from the [Supreme Court's website](https://www.supremecourt.gov/oral_arguments/argument_transcript/2019)  
 * a table of voting records and case details, from the [Supreme Court Database](http://scdb.wustl.edu/data.php) maintained by Washing University St. Louis 
-
-![alito](/assets/justice_photos/alito.jpg)![breyer](/assets/justice_photos/breyer.jpg)![ginsburg](/assets/justice_photos/ginsburg.jpg)![gorsuch](/assets/justice_photos/gorsuch.jpg)![kagan](/assets/justice_photos/kagan.jpg)![kavanaugh](/assets/justice_photos/kavanaugh.jpg)![roberts](/assets/justice_photos/roberts.jpg)![sotomayor](/assets/justice_photos/sotomayor.jpg)![thomas](/assets/justice_photos/thomas.jpg)
