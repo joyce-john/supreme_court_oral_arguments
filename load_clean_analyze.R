@@ -30,7 +30,6 @@ library(data.table)
 library(scales)
 library(ggiraph)
 library(ggpubr)
-library(ggimage)
 
 
 ####################
@@ -390,6 +389,7 @@ all_cases_with_votes <-
 # leave most NAs alone, but fill in the caseName variable so we can use it plot tooltips
 all_cases_with_votes$caseName[all_cases_with_votes$docket_number == "18-217"] <- "MATHENA v. MALVO"
 
+
 ####################
 ####################
 ##      WRITE     ##
@@ -405,17 +405,12 @@ fwrite(all_cases_with_votes, file = 'data/clean/all_cases_with_votes.csv')
 
 #######################################################################
 ###################                                 ###################
-###################                                 ###################
-###################                                 ###################
-###################                                 ###################
+###################             VISUALIZE           ###################
+###################                AND              ###################
+###################              ANALYZE            ###################
 ###################                                 ###################
 #######################################################################
 
-### TODO: add interactivity with ggiraph?
-## geom_point() can be labeled with case names
-
-## possible TODO: analyze relationship between sentence length and sentiment
-## using sentimentr most_positive_sentence and most_negative_sentence columns
 
 # ------------------------------------------------------------------------------ section on Thomas's graphs
 
@@ -511,7 +506,7 @@ ggiraph(ggobj = plot_words_spoken_by_vote_type)
 
 
 # p value of 0.01... yeah, they ask more questions when they vote against
-t.test(questions ~ voted_for_petitioner, data = all_cases_with_votes)
+questions_t_test <- t.test(questions ~ voted_for_petitioner, data = all_cases_with_votes)
 
 # GOOD
 # interactivity: label case name, `questions given: `
@@ -549,10 +544,10 @@ mean_questions_t_test <- function(one_judge){
   
   # store results in list
   one_judge_t_questions_t_test_result <- list(Justice = one_judge,
-                                              `Voted for Petitioner` = questions_t_test_result$estimate[['mean in group TRUE']],
-                                              `Voted against Petitioner` = questions_t_test_result$estimate[['mean in group FALSE']],
+                                              `Voted for Petitioner` = round(questions_t_test_result$estimate[['mean in group TRUE']], 2),
+                                              `Voted against Petitioner` = round(questions_t_test_result$estimate[['mean in group FALSE']], 2),
                                               `Statistical Significance` = significance,
-                                              `P Value` = questions_t_test_result$p.value)
+                                              `P-Value` = round(questions_t_test_result$p.value, 3))
   
 }
 
@@ -561,7 +556,7 @@ questions_table <- rbindlist(lapply(justices, mean_questions_t_test))
 
 # arrange by p value to show relevant justices first
 questions_table %>% 
-  arrange(`P Value`)
+  arrange(`P-Value`)
 
 
 ### ---------------------------------------------------------------------------- sentiment
