@@ -40,7 +40,7 @@ At a high level, the PDF mining process works like this:
 3. Extract the text for one justice who speaks in that section  
 4. Analyze the extracted text for the justice (sentiment analysis + count of words, questions, interruptions)  
 5. Create a single row of data for the analysis of the justice in this case  
-6. Repeat every justice in the case  
+6. Repeat for every justice in the case  
 7. Repeat for every case PDF from 2019  
 
 ![](assets/diagrams/data_collection_process.jpg)  
@@ -633,7 +633,7 @@ questions_table <- rbindlist(lapply(justices, mean_questions_t_test))
 # arrange by p value to show relevant justices first
 questions_table %>%
   arrange(`P-Value`) %>%
-  kable() %>%
+  kable(caption = "Table: Average Number of Questions by Vote Type") %>%
   kable_material(c("striped", "hover")) 
 
 
@@ -782,8 +782,8 @@ all_cases_with_votes %>%
   arrange(`Mean Sentiment Score`)
 
 sentiment_table %>% 
-  kable() %>% 
-  kable_material(c("striped", "hover"))
+  kable(caption = "Table: Justices Ranked by Mean Sentiment Score") %>% 
+  kable_material(c("striped", "hover"), full_width = F)
 
 ```  
 Interesting. Breyer, Ginsburg, Kagan, and Sotomayor represent the liberal wing of the court. They sit at the top of this table for being the most negative, on average. The conservative justices, on the other, are lumped together at the bottom of this table. (If the pattern were perfect, Alito and Roberts would switch places, though.)  
@@ -928,7 +928,7 @@ We can see why this word scored such a high TF-IDF: it is *highly* unique to Jus
 
 ### TF-IDF for Roberts, Conditioned on Vote Type
 
-If we just focus on one justice, and treat their speech before voting **for** and **against** the petitioner as two separate documents, can we identify any terms that unique to their speech based on how they will vote later?  
+If we focus on a single justice, and treat their speech prior to voting **for** and prior to voting **against** the petitioner as two separate documents, can we identify any terms that are unique to their speech based on how they will vote later?  
 
 Let's try it on Chief Justice Roberts, who is often seen as the swing vote:  
 
