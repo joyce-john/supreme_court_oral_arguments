@@ -502,7 +502,7 @@ The chart below shows the number of words spoken by each justice (during the pet
 
 ### Wait a minute, what's up with Justice Thomas?  
 
-Before we go any further into the analysis, I have to address one thing: this is not a mistake. There was no issue parsing the PDFs, there's nothing wrong with the data. Justice Clarence Thomas simply doesn't speak very often. In fact, [he once went 10 years without asking a question](https://www.nytimes.com/2016/03/01/us/politics/supreme-court-clarence-thomas.html). He broke that streak in 2016, but he still doesn't chime in very often - [except during the pandemic](https://www.reuters.com/world/us/amid-pandemic-us-justice-clarence-thomas-has-question-or-two-2021-05-12/).   
+Before we go any further into the analysis, I have to address one thing: this is not a mistake. There was no issue parsing the PDFs, there's nothing wrong with the data. Justice Clarence Thomas simply doesn't speak very often. In fact, [he once went 10 years without asking a question](https://www.nytimes.com/2016/03/01/us/politics/supreme-court-clarence-thomas.html). He broke that streak in 2016, but he still doesn't chime in much - [except during the pandemic](https://www.reuters.com/world/us/amid-pandemic-us-justice-clarence-thomas-has-question-or-two-2021-05-12/).   
 
 Of the 56 arguments analyzed, Thomas spoke during 10 of them. I chose not to recode his NA values with 0s - I think the absence of dots on the graph makes the point better.  
 
@@ -711,7 +711,7 @@ ggarrange(plot_sentiment_density_afinn,
 
 The afinn scores lean *very slightly* negative, while the sentimentr scores are notably positive on average.  
 
-These two methods are different enough, that they're not even really correlated. I standardized their scores (by calculating z-scores) and plotted them against each other:  
+These two methods are different enough that they're not even really correlated. I standardized their scores (by calculating z-scores) and plotted them against each other:  
 
 ```{r afinn vs sentimentr z-score scatter, echo = FALSE, warning = FALSE, message = FALSE}
 
@@ -736,7 +736,7 @@ ggiraph(ggobj = plot_sentiment_z_scores)
 
 ```  
 
-Among the cases which have sentiment scores closer to the mean, there appears to be some mild positive correlation between the two scoring systems. But as you move towards the extreme cases - starting at even one standard deviation away from the mean on either axis - the relationship totally falls apart. The upper-left and lower-right quadrants provide us a few examples of texts where they couldn't even agree on the polarity, much less the intensity, of the sentiment. (Perhaps this is due to sentimentr recognizing negation, which isn't possible when analyzing unigrams...)  
+Among the cases which have sentiment scores closer to the mean, there appears to be some mild positive correlation between the two scoring systems. But as you move towards the extreme cases - starting at even one standard deviation away from the mean on either axis - the relationship totally falls apart. The upper-left and lower-right quadrants provide us a few examples of texts where they couldn't even agree on the polarity, much less the intensity, of the sentiment. (Perhaps this is due to **sentimentr** recognizing negation, which isn't possible when analyzing unigrams...)  
 
 I decided to proceed with the sentiment analysis using the **afinn** lexicon on unigrams. The **sentimentr** package is a great solution for other applications, but it seems to have an unusually positive bias *on this particular data*.  
 
@@ -821,7 +821,7 @@ Ginsburg, Kagan, and Thomas have easy-to-read, incongruent distributions based o
 
 Alito and Breyer are a bit more even-handed, at least in this regard. Perhaps that's easy when you are always slightly grumpy.  
 
-Chief Justice Roberts has a distribution that makes you look twice. Yes, the mean sentiment score is positive when voting against the petitioner, and negative when voting for the petitioner. (Remember, this analysis only analyzes the interaction between the justices and petitioners - the other side of any case, the respondents, is excluded. So this seems very odd!)  
+Chief Justice Roberts has a distribution that makes you look twice. Yes, the mean sentiment score is **positive** when voting **against** the petitioner, and **negative** when voting **for** the petitioner. (Remember, this analysis only analyzes the interaction between the justices and petitioners - the other side of the cases, the respondents, is excluded. So this seems very odd!)  
 
 I will speculate about why his sentiment distribution seems out of line with his votes: 
 
@@ -1005,7 +1005,7 @@ Here is a short, non-exhaustive, non-scientific recap of things we learned about
 **JUSTICE SOTOMAYOR**  
 
 * might interrupt you a lot; doesn't mean she is against your argument  
-* sentiment behind her words match her beliefs pretty well, especially if the sentiment is extreme  
+* sentiment behind her words matches her beliefs pretty well, especially if the sentiment is extreme  
 
 **JUSTICE KAGAN**  
 
