@@ -73,9 +73,9 @@ It's possible to detect interruptions automatically because court stenographers 
 
 ![](assets/kavanaugh_interruption/interruption_by_kavanaugh.jpg)    
   
-Mr. Gant's line ends with -- and is followed by Justice Kavanaugh starting a new line. This is an interruption by Kavanaugh. After cleaning the text (removing line numbers, excess spaces, etc.) we can detect interruptions by Kavanaugh with a regular expression like this: `"-- JUSTICE KAVANAUGH"`.  
+Mr. Gant's line ends with `--` and is followed by Justice Kavanaugh starting a new line. This is an interruption by Kavanaugh. After cleaning the text (removing line numbers, excess spaces, etc.) we can detect interruptions by Kavanaugh with a regular expression like this: `"-- JUSTICE KAVANAUGH"`.  
   
-This process is straightforward thanks to the extremely standardized nature of the court reporting: abrupt stops are always represented with two dashes, names are written in all caps when there is a change of speaker, and speaker names are always written the same way within a document. We don't have to worry about accidentally counting a stutter as an interruption, because a stutter isn't followed `JUSTICE NAME` in all caps in the dialogue.  
+This process is straightforward thanks to the extremely standardized nature of the court reporting: abrupt stops are always represented with two dashes, names are written in all caps when there is a change of speaker, and speaker names are always written the same way within a document. We don't have to worry about accidentally counting a stutter as an interruption, because a stutter isn't followed by `JUSTICE NAME` in all caps in the dialogue.  
   
 To handle this task automatically, I use a different regular expression generated for each justice.  
   
@@ -709,7 +709,7 @@ ggarrange(plot_sentiment_density_afinn,
 
 ```  
 
-The afinn scores lean *very slightly* negative, while the sentimentr scores are notably positive on average.  
+The **afinn** scores lean *very slightly* negative, while the **sentimentr** scores are notably positive on average.  
 
 These two methods are different enough that they're not even really correlated. I standardized their scores (by calculating z-scores) and plotted them against each other:  
 
@@ -825,7 +825,7 @@ Chief Justice Roberts has a distribution that makes you look twice. Yes, the mea
 
 I will speculate about why his sentiment distribution seems out of line with his votes: 
 
-Roberts has a tough job. He understands that he is often the "swing vote" in cases decided by this court. He knows that people see that Supreme Court as political, and [he doesn't like that](https://www.reuters.com/article/us-usa-court-chiefjustice-idUSKBN1WA08F). Additionally, as the chief justice, he has a certain duty to lead the court - and to lead courtroom discussions - in an unbiased way. For these reasons, I think we may not always see a candid display of his thoughts during oral arguments, but rather an attempt to appear neutral and handle both sides of the case fairly. If he already has an opinion during oral arguments, he may be trying to conceal it.  
+Roberts has a tough job. He understands that he is often the "swing vote" in cases decided by this court. He knows that people see the Supreme Court as political, and [he doesn't like that](https://www.reuters.com/article/us-usa-court-chiefjustice-idUSKBN1WA08F). Additionally, as the chief justice, he has a certain duty to lead the court - and to lead courtroom discussions - in an unbiased way. For these reasons, I think we may not always see a candid display of his thoughts during oral arguments, but rather an attempt to appear neutral and handle both sides of the case fairly. If he already has an opinion during oral arguments, he may be trying to conceal it.  
 
 ## Vocabulary Analysis  
 
@@ -916,7 +916,7 @@ plot_tf_idf_all_justices
 ## talk about "Dah", show "dah" screenshots
 ```  
 
-Here, we only gain less insight about the justices' beliefs, and we learn more about their mannerisms. Justice Robert's speech is distinguished by the word "briefly"; probably because he directing the trial ("Briefly, counsel."). Justice Sotomayor says "concealing" a lot more than other justices; perhaps she thinks that the lawyers are hiding the true nature of their arguments. Justice Breyer is unique in saying... "dah"?  
+Here, we only gain less insight about the justices' beliefs, and we learn more about their mannerisms. Justice Robert's speech is distinguished by the word "briefly"; probably because he is directing the trial ("Briefly, counsel."). Justice Sotomayor says "concealing" a lot more than other justices; perhaps she thinks that the lawyers are hiding the true nature of their arguments. Justice Breyer is unique in saying... "dah"?  
 
 Not a text-parsing error. Here are some snippets of Breyer using the term "dah-dah-dah":  
   
