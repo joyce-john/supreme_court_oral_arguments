@@ -3,12 +3,12 @@ title: "Oral Arguments before the Supreme Court"
 author: "John Joyce"
 date: "5/16/2021"
 output:
-  pdf_document:
-    toc: yes
   html_document:
     theme: lumen
     toc: yes
     toc_float: yes
+  pdf_document:
+    toc: yes
 subtitle: A look at how justices spoke to petitioners in the 2019 session.
 always_allow_html: true
 ---
@@ -714,23 +714,24 @@ ggarrange(plot_sentiment_density_afinn,
 
 The **afinn** scores lean *very slightly* negative, while the **sentimentr** scores are notably positive on average.  
 
-These two methods are different enough that they're not even really correlated. I standardized the sentiment scores from both methods (by calculating [z-scores](https://en.wikipedia.org/wiki/Standard_score)) and plotted them against each other. Every dot represents the transcript of one justice's speech in a single case - the x and y axes show the standardized sentiment scores given by the two different systems.    
+These two methods are different enough that they're not even really well correlated. I standardized the sentiment scores from both methods (by calculating [z-scores](https://en.wikipedia.org/wiki/Standard_score)) and plotted them against each other. Every dot represents the transcript of one justice's speech in a single case - the x and y axes show the standardized sentiment scores given by the two different systems.    
 
 ```{r afinn vs sentimentr z-score scatter, echo = FALSE, warning = FALSE, message = FALSE}
 
 # scatter of z-scores for afinn and sentimentr
-# the scores are weakly correlated within 2 standard deviations of their respective means
-# and very different at the extremes
+# the scores are weakly correlated within 2 standard deviations of their respective means and very different at the extremes
+# geom_point_interactive must be the final layer of the plot, or else the tooltips will be covered by the geom_smooth ribbon
 plot_sentiment_z_scores <- 
 all_cases_with_votes %>%
   drop_na(sentiment_score_afinn, sentiment_score_sentimentr) %>% 
   mutate(afinn_scaled = (sentiment_score_afinn - mean(sentiment_score_afinn)) / sd(sentiment_score_afinn),
          sentimentr_scaled = (sentiment_score_sentimentr - mean(sentiment_score_sentimentr)) / sd(sentiment_score_sentimentr)) %>% 
   ggplot(aes(x = afinn_scaled, y = sentimentr_scaled)) +
-  geom_point_interactive(aes(tooltip = paste0("sentimentr z-score: ", round(sentimentr_scaled, 2),
+  geom_point() + 
+  geom_smooth(color = "red") +
+  geom_point_interactive(aes(tooltip = paste0("sentimentr z-score: ", round(sentimentr_scaled, 2), 
                                               "\n",
                                               "afinn z-score: ", round(afinn_scaled, 2)))) +
-  geom_smooth(color = "red") +
   labs(title = "Scaled afinn & sentimentr scores", x = "afinn z-score", y = "sentimentr z-score")
 
 # show plot
