@@ -1,13 +1,16 @@
 ---
 title: "Oral Arguments before the Supreme Court"
-subtitle: "A look at how justices spoke to petitioners in the 2019 session."
 author: "John Joyce"
 date: "5/16/2021"
 output:
+  pdf_document:
+    toc: yes
   html_document:
-    theme: "lumen"
-    toc: true
-    toc_float: true
+    theme: lumen
+    toc: yes
+    toc_float: yes
+subtitle: A look at how justices spoke to petitioners in the 2019 session.
+always_allow_html: true
 ---
 
 ```{r setup, include=FALSE}
@@ -564,7 +567,7 @@ ggiraph(ggobj = plot_words_spoken_by_vote_type)
 Do they justices ask more questions in cases where they eventually vote against the petitioner?  
 ```{r mean questions t-test all justices, echo = FALSE, warning = FALSE, message = FALSE}
 # p value of 0.01... yeah, they ask more questions when they vote against
-questions_t_test <- t.test(questions ~ voted_for_petitioner, data = all_cases_with_votes)
+questions_t_test <- t.test(questions ~ voted_for_petitioner, data = all_cases_with_votes, na.action = "na.omit")
 
 # variables for markdown text
 questions_mean_voted_for_petitioner <- round(questions_t_test$estimate[["mean in group TRUE"]], 2)
@@ -711,7 +714,7 @@ ggarrange(plot_sentiment_density_afinn,
 
 The **afinn** scores lean *very slightly* negative, while the **sentimentr** scores are notably positive on average.  
 
-These two methods are different enough that they're not even really correlated. I standardized their scores (by calculating z-scores) and plotted them against each other:  
+These two methods are different enough that they're not even really correlated. I standardized the sentiment scores from both methods (by calculating [z-scores](https://en.wikipedia.org/wiki/Standard_score)) and plotted them against each other. Every dot represents the transcript of one justice's speech in a single case - the x and y axes show the standardized sentiment scores given by the two different systems.    
 
 ```{r afinn vs sentimentr z-score scatter, echo = FALSE, warning = FALSE, message = FALSE}
 
@@ -786,7 +789,7 @@ sentiment_table %>%
   kable_material(c("striped", "hover"), full_width = F)
 
 ```  
-Interesting. Breyer, Ginsburg, Kagan, and Sotomayor represent the liberal wing of the court. They sit at the top of this table for being the most negative, on average. The conservative justices, on the other, are lumped together at the bottom of this table. (If the pattern were perfect, Alito and Roberts would switch places, though.)  
+Interesting. Breyer, Ginsburg, Kagan, and Sotomayor represent the liberal wing of the court. They sit at the top of this table for being the most negative, on average. The conservative justices, on the other hand, are lumped together at the bottom of this table. (If the pattern were perfect, Alito and Roberts would switch places, though.)  
   
 Why might this be? It could be a result of the particular cases brought before the court this year. Donald Trump and Attorney General William Barr were party to [a](https://en.wikipedia.org/wiki/Trump_v._Mazars_USA,_LLP) [handful](https://en.wikipedia.org/wiki/Trump_v._Vance) [of](https://en.wikipedia.org/wiki/Barr_v._American_Assn._of_Political_Consultants,_Inc.) [cases](https://en.wikipedia.org/wiki/Barton_v._Barr) in this session. Or it could be that these four justices [have banded together and gotten defensive](https://www.npr.org/2020/07/15/891185410/in-supreme-court-term-liberals-stuck-together-while-conservatives-appeared-fract) in a court where conservatives outnumber them.  
 
